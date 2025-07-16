@@ -1,4 +1,3 @@
-
 #!/bin/bash
 # Tested on Ubuntu 16.04 (STANDARD-1 KCLOUD VM)
 set -ex

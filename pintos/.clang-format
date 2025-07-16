@@ -1,0 +1,43 @@
+# 이 파일은 clang-format 설정을 정의합니다.
+
+# Google 스타일을 기본으로 사용합니다.
+BasedOnStyle: Google
+
+# 들여쓰기 너비를 4칸으로 설정합니다.
+IndentWidth: 4
+
+# 한 줄의 최대 길이를 100자로 제한합니다.
+# 이 길이를 넘어가면 clang-format이 자동으로 줄바꿈을 시도합니다.
+ColumnLimit: 100
+
+# 중괄호를 같은 줄에 붙여서 사용합니다. (K&R 스타일)
+BreakBeforeBraces: Attach
+
+# 함수 호출 시 매개변수가 길어져서 ColumnLimit을 초과할 경우에만 줄바꿈을 허용합니다.
+# 짧은 매개변수는 한 줄에 유지됩니다.
+BinPackParameters: true
+
+# 포인터/참조 기호 '*' 또는 '&'를 타입 이름에 붙여서 정렬합니다. (예: int* ptr;)
+PointerAlignment: Left
+
+# 블록 시작 부분의 불필요한 빈 줄을 제거합니다.
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+# switch 문의 case 레이블을 들여씁니다.
+IndentCaseLabels: true
+
+# 짧은 if 문이라도 한 줄에 작성하는 것을 허용하지 않고 항상 줄바꿈합니다.
+AllowShortIfStatementsOnASingleLine: false
+
+# 짧은 함수라도 한 줄에 작성하는 것을 허용하지 않습니다.
+# (Empty는 함수 본문이 비어있을 때만 한 줄 허용)
+AllowShortFunctionsOnASingleLine: Empty
+
+# 여러 줄에 걸쳐 있는 문자열 리터럴 앞에 항상 줄바꿈합니다.
+AlwaysBreakBeforeMultilineStrings: true
+
+# 할당 연산자 (=, += 등) 앞에 공백을 추가합니다.
+SpaceBeforeAssignmentOperators: true
+
+# 제어문 (if, for, while 등)의 괄호 앞에 공백을 추가합니다. (예: if (cond))
+SpaceBeforeParens: ControlStatements
