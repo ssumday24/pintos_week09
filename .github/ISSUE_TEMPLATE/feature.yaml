@@ -1,0 +1,129 @@
+# config.yaml 또는 pintos_features.yaml
+
+# Pintos Project Features Configuration
+
+project_name: Pintos_OS_Project
+
+# Project 1: Threads
+threads:
+  status: completed
+  description: Basic thread management, scheduling, and synchronization primitives.
+  features:
+    - name: thread_creation_and_destruction
+      status: completed
+      notes: Implemented thread_create, thread_exit.
+    - name: thread_scheduling
+      status: completed
+      notes: Round-robin scheduler.
+    - name: advanced_scheduler
+      status: not_started # 또는 in_progress, completed
+      notes: Priority scheduling and multilevel feedback queue.
+    - name: synchronization_primitives
+      status: completed
+      notes: Semaphores, locks, condition variables.
+    - name: alarm_clock
+      status: completed
+      notes: Basic timer-based waiting and waking.
+
+# Project 2: User Programs
+userprog:
+  status: in_progress
+  description: Loading and running user programs, handling system calls, and memory management.
+  features:
+    - name: argument_passing
+      status: completed
+      notes: Implemented parsing command line arguments and pushing to user stack.
+    - name: process_creation_exec
+      status: completed
+      notes: `process_exec` and `load` for executable loading.
+    - name: process_termination_exit
+      status: completed
+      notes: `exit` system call.
+    - name: syscall_infrastructure
+      status: completed
+      notes: Basic syscall handler for `halt`, `exit`.
+    - name: syscall_halt
+      status: completed
+      notes: `halt` system call implemented via `power_off()`.
+    - name: syscall_exit
+      status: in_progress # 또는 completed
+      notes: `exit` system call (need to handle parent waiting).
+    - name: syscall_fork
+      status: not_started # 또는 in_progress, completed
+      notes: `fork` system call (cloning process, memory, file descriptors).
+    - name: syscall_exec
+      status: not_started # 또는 in_progress, completed
+      notes: `exec` system call.
+    - name: syscall_wait
+      status: not_started # 또는 in_progress, completed
+      notes: `wait` system call (most complex).
+    - name: user_memory_access_validation
+      status: in_progress
+      notes: Validating user pointers for system calls.
+    # File System System Calls (Project 2-3 overlap for some tasks)
+    - name: syscall_create
+      status: not_started
+    - name: syscall_remove
+      status: not_started
+    - name: syscall_open
+      status: not_started
+    - name: syscall_filesize
+      status: not_started
+    - name: syscall_read
+      status: not_started
+    - name: syscall_write
+      status: not_started
+    - name: syscall_seek
+      status: not_started
+    - name: syscall_tell
+      status: not_started
+    - name: syscall_close
+      status: not_started
+    - name: file_descriptor_management
+      status: not_started
+      notes: Per-process file descriptor table.
+    - name: syscall_synchronization
+      status: not_started
+      notes: Protecting file system operations with locks.
+
+# Project 3: Virtual Memory
+vm:
+  status: not_started
+  description: Implementing virtual memory, paging, and swap space.
+  features:
+    - name: supplemental_page_table
+      status: not_started
+    - name: page_fault_handling
+      status: not_started
+    - name: lazy_loading
+      status: not_started
+    - name: stack_growth
+      status: not_started
+    - name: memory_mapped_files
+      status: not_started
+    - name: swap_space
+      status: not_started
+    - name: eviction_policy
+      status: not_started
+
+# Project 4: File System
+filesys:
+  status: not_started
+  description: Enhancing the file system with directories, subdirectories, and file growth.
+  features:
+    - name: directory_entry_management
+      status: not_started
+    - name: subdirectory_support
+      status: not_started
+    - name: file_growth_extension
+      status: not_started
+    - name: inode_management
+      status: not_started
+    - name: buffer_cache
+      status: not_started
+
+# General Configuration / Meta-data
+general_config:
+  developer_team: [ "Team_Member_A", "Team_Member_B", "Team_Member_C" ]
+  last_updated: "2025-07-18"
+  repository_url: "https://github.com/ssumday24/pintos_week09"
