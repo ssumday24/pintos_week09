@@ -73,15 +73,6 @@ void sema_down(struct semaphore *sema) {
         list_insert_ordered(&sema->waiters, &thread_current()->elem, higher_priority, NULL);
         thread_block();  // thead block...
     }
-    //    if (sema->value == 0) {  // 만약 sema가 0이면
-    //        // list_push_back(&sema->waiters, &thread_current()->elem);  // waㄹiter에 넣고
-    //        list_insert_ordered(&sema->waiters, &thread_current()->elem, higher_priority, NULL);
-    //        thread_block();  // thead block...
-    //    }
-    //
-    //    else {
-    //        sema->value--;
-    //    }
     sema->value--;
     intr_set_level(old_level);
 }
@@ -124,10 +115,9 @@ void sema_up(struct semaphore *sema) {
         thread_unblock(t);
     }
     sema->value++;
+
     thread_yield();
     intr_set_level(old_level);
-
-    //    printf("%p\n", t);
 }
 
 static void sema_test_helper(void *sema_);
@@ -197,16 +187,18 @@ void lock_acquire(struct lock *lock) {
     ASSERT(!lock_held_by_current_thread(lock));
     struct thread *hold_t = lock->holder;
     struct thread *now_t = thread_current();
+    enum intr_level old_level = intr_disable();
     now_t->wait_on_lock = lock;
     if (hold_t != NULL && hold_t->priority < now_t->priority) {
         list_insert_ordered(&hold_t->donation_list, &now_t->donation_elem, lower_priority, NULL);
         hold_t->priority = get_high_donation(hold_t);
-        set_donations_priority(lock, hold_t);
+        set_donations_priority(hold_t);
     }
     sema_down(&lock->semaphore);
 
     lock->holder = thread_current();
     lock->holder->wait_on_lock = NULL;
+    intr_set_level(old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -237,6 +229,7 @@ void lock_release(struct lock *lock) {
     ASSERT(lock != NULL);
     ASSERT(lock_held_by_current_thread(lock));
     struct thread *t = thread_current();
+    enum intr_level old_level = intr_disable();
     remove_donations(lock, t);
     if (!list_empty(&t->donation_list)) {
         t->priority = get_high_donation(t);
@@ -246,6 +239,7 @@ void lock_release(struct lock *lock) {
 
     lock->holder = NULL;
     sema_up(&lock->semaphore);
+    intr_set_level(old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false
