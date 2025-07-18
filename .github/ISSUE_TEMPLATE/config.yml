@@ -1,0 +1,11 @@
+# .github/config.yaml
+
+# 깃허브 리포지토리 설정 파일
+
+# Contact Links: 이슈 페이지에 표시될 지원 및 문의 링크 설정
+contact_links:
+
+  - name: ✨ Suggest a New Feature # 기능 제안 링크 추가 
+    url: https://github.com/your-username/your-repo/issues/new?assignees=&labels=enhancement&projects=&template=feature_request.md&title=
+    about: Have an idea for a new feature? Let us know!
+
