@@ -159,6 +159,6 @@ bool higher_priority(const struct list_elem *a_, const struct list_elem *b_, voi
 bool lower_priority(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
 int get_high_donation(struct thread *t);
 void remove_donations(struct lock *lock, struct thread *t);
-void set_donations_priority(struct lock *lock, struct thread *t);
+void set_donations_priority(struct thread *t);
 
 #endif /* threads/thread.h */

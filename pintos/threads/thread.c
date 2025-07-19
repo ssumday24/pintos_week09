@@ -210,7 +210,6 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
     if (thread_current()->priority < priority)
         thread_yield();
 
-    //    printf("%d\n", thread_get_priority());
     return tid;
 }
 
@@ -318,19 +317,21 @@ void thread_set_priority(int new_priority) {
     int top_priority = -1;
     struct thread *curr = thread_current();
 
-    if (curr->priority < new_priority)
+    if (curr->priority == curr->o_priority) {
         curr->priority = new_priority;
+    }
     curr->o_priority = new_priority;
 
     if (!list_empty(&ready_list))
         top_priority = list_entry(list_front(&ready_list), struct thread, elem)->priority;
 
-    if (top_priority > new_priority)
+    if (top_priority > curr->priority)
         thread_yield();
 }
 
 /* Returns the current thread's priority. */
-int thread_get_priority(void) {
+int
+thread_get_priority(void) {
     return thread_current()->priority;
 }
 
@@ -663,7 +664,7 @@ void remove_donations(struct lock *lock, struct thread *t) {
     }
 }
 
-void set_donations_priority(struct lock *lock, struct thread *holder) {
+void set_donations_priority(struct thread *holder) {
     int priority_to_donate = holder->priority;
     while (holder->wait_on_lock != NULL) {
         holder = holder->wait_on_lock->holder;
