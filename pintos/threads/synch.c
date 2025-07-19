@@ -117,16 +117,19 @@ void sema_up(struct semaphore *sema) {
     struct thread *t = NULL;
     ASSERT(sema != NULL);
 
-    old_level = intr_disable();
+    old_level = intr_disable();  // 인터럽트 OFF
+
     if (!list_empty(&sema->waiters)) {
         list_sort(&sema->waiters, higher_priority, NULL);
         t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
         thread_unblock(t);
     }
     sema->value++;
-    if (!intr_context())  //인터럽트 컨텍스트가 아닐때만 yield
-        thread_yield();
-    intr_set_level(old_level);
+
+    intr_set_level(old_level);  // 인터럽트 ON
+
+    // CPU 양보
+    thread_try_yield();
 }
 
 static void sema_test_helper(void *sema_);

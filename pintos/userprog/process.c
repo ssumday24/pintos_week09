@@ -20,6 +20,7 @@
 #include "threads/vaddr.h"
 #include "userprog/gdt.h"
 #include "userprog/tss.h"
+
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -75,6 +76,7 @@ static void initd(void *f_name) {
 
     if (process_exec(f_name) < 0)
         PANIC("Fail to launch initd\n");
+
     NOT_REACHED();
 }
 
@@ -171,7 +173,7 @@ error:
 
 // 유저 스택에 파싱된 토큰을 저장하는 함수
 void argument_stack(char **argv, int argc, struct intr_frame *if_) {
-    char *arg_addr[100];
+    char *arg_addr[128];
     int argv_len;
 
     for (int i = argc - 1; i >= 0; i--) {
@@ -218,7 +220,7 @@ int process_exec(void *f_name) {
     /** project2-Command Line Parsing */
     char *ptr, *arg;
     int arg_cnt = 0;
-    char *arg_list[32];
+    char *arg_list[64];
 
     for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr))
         arg_list[arg_cnt++] = arg;
