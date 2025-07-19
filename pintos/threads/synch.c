@@ -124,10 +124,9 @@ void sema_up(struct semaphore *sema) {
         thread_unblock(t);
     }
     sema->value++;
-    thread_yield();
+    if (!intr_context())  //인터럽트 컨텍스트가 아닐때만 yield
+        thread_yield();
     intr_set_level(old_level);
-
-    //    printf("%p\n", t);
 }
 
 static void sema_test_helper(void *sema_);

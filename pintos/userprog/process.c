@@ -50,8 +50,16 @@ tid_t process_create_initd(const char *file_name) {
         return TID_ERROR;
     strlcpy(fn_copy, file_name, PGSIZE);
 
+    //원본 file_name 은 수정하면 안되므로, 복사본 thread_name 만들기
+    char thread_name[16];
+    strlcpy(thread_name, file_name, sizeof(thread_name));
+
+    //복사본인 thread_name 파싱
+    char *save_ptr;
+    strtok_r(thread_name, " ", &save_ptr);
+
     /* Create a new thread to execute FILE_NAME. */
-    tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
+    tid = thread_create(thread_name, PRI_DEFAULT, initd, fn_copy);
     if (tid == TID_ERROR)
         palloc_free_page(fn_copy);
     return tid;
@@ -117,11 +125,19 @@ static void __do_fork(void *aux) {
     struct thread *parent = (struct thread *)aux;
     struct thread *current = thread_current();
     /* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-    struct intr_frame *parent_if;
+    struct intr_frame *parent_if = NULL;  // NULL로 초기화
     bool succ = true;
 
     /* 1. Read the cpu context to local stack. */
-    memcpy(&if_, parent_if, sizeof(struct intr_frame));
+    if (parent_if != NULL) {  // NULL 체크 추가
+        memcpy(&if_, parent_if, sizeof(struct intr_frame));
+    } else {
+        // 기본값으로 초기화
+        memset(&if_, 0, sizeof(struct intr_frame));
+        if_.ds = if_.es = if_.ss = SEL_UDSEG;
+        if_.cs = SEL_UCSEG;
+        if_.eflags = FLAG_IF | FLAG_MBS;
+    }
 
     /* 2. Duplicate PT */
     current->pml4 = pml4_create();
@@ -153,6 +169,35 @@ error:
     thread_exit();
 }
 
+// 유저 스택에 파싱된 토큰을 저장하는 함수
+void argument_stack(char **argv, int argc, struct intr_frame *if_) {
+    char *arg_addr[100];
+    int argv_len;
+
+    for (int i = argc - 1; i >= 0; i--) {
+        argv_len = strlen(argv[i]) + 1;
+        if_->rsp -= argv_len;
+        memcpy(if_->rsp, argv[i], argv_len);
+        arg_addr[i] = if_->rsp;
+    }
+
+    while (if_->rsp % 8) *(uint8_t *)(--if_->rsp) = 0;
+
+    if_->rsp -= 8;
+    memset(if_->rsp, 0, sizeof(char *));
+
+    for (int i = argc - 1; i >= 0; i--) {
+        if_->rsp -= 8;
+        memcpy(if_->rsp, &arg_addr[i], sizeof(char *));
+    }
+
+    if_->rsp = if_->rsp - 8;
+    memset(if_->rsp, 0, sizeof(void *));
+
+    if_->R.rdi = argc;
+    if_->R.rsi = if_->rsp + 8;
+}
+
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
 int process_exec(void *f_name) {
@@ -170,13 +215,26 @@ int process_exec(void *f_name) {
     /* We first kill the current context */
     process_cleanup();
 
+    /** project2-Command Line Parsing */
+    char *ptr, *arg;
+    int arg_cnt = 0;
+    char *arg_list[32];
+
+    for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr))
+        arg_list[arg_cnt++] = arg;
+
     /* And then load the binary */
     success = load(file_name, &_if);
+
+    /** project2-Command Line Parsing */
+    argument_stack(arg_list, arg_cnt, &_if);
 
     /* If load failed, quit. */
     palloc_free_page(file_name);
     if (!success)
         return -1;
+
+    hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
     /* Start switched process. */
     do_iret(&_if);
@@ -196,6 +254,10 @@ int process_wait(tid_t child_tid UNUSED) {
     /* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
      * XXX:       to add infinite loop here before
      * XXX:       implementing the process_wait. */
+
+    //무한루프 추가
+    while (1) {
+    }
     return -1;
 }
 
@@ -240,7 +302,11 @@ static void process_cleanup(void) {
  * This function is called on every context switch. */
 void process_activate(struct thread *next) {
     /* Activate thread's page tables. */
-    pml4_activate(next->pml4);
+    if (next->pml4 != NULL) {
+        pml4_activate(next->pml4);
+    } else {
+        pml4_activate(NULL);
+    }
 
     /* Set thread's kernel stack for use in processing interrupts. */
     tss_update(next);

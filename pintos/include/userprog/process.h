@@ -9,5 +9,6 @@ int process_exec(void *f_name);
 int process_wait(tid_t);
 void process_exit(void);
 void process_activate(struct thread *next);
-
+// process_exec()에서 사용할 함수 선언
+static void argument_stack(char **argv, int argc, struct intr_frame *if_);
 #endif /* userprog/process.h */
