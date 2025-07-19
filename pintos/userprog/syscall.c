@@ -5,6 +5,7 @@
 
 #include "intrinsic.h"
 #include "threads/flags.h"
+#include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/loader.h"
 #include "threads/thread.h"
@@ -36,9 +37,18 @@ void syscall_init(void) {
     write_msr(MSR_SYSCALL_MASK, FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
-/* The main system call interface */
+/* 메인 시스템콜 인터페이스  */
 void syscall_handler(struct intr_frame *f UNUSED) {
     // TODO: Your implementation goes here.
-    printf("system call!\n");
-    thread_exit();
+    int syscall_number = f->R.rax;  // 시스템 콜 번호는 rax 레지스터에 저장됨
+
+    switch (syscall_number) {
+        case SYS_HALT:
+            power_off();
+            break;
+        default:
+            printf("Unknown system call: %d\n", syscall_number);
+            thread_exit();
+            break;
+    }
 }

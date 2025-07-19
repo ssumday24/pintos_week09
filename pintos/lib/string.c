@@ -212,7 +212,7 @@ char *strtok_r(char *s, const char *delimiters, char **save_ptr) {
     if (s == NULL)
         s = *save_ptr;
     ASSERT(s != NULL);
-
+    // strchr : 문자열에 처음으로 나타나는 위치 반환
     /* Skip any DELIMITERS at our current position. */
     while (strchr(delimiters, *s) != NULL) {
         /* strchr() will always return nonnull if we're searching
