@@ -91,8 +91,8 @@ struct list_elem {
 
 /* List. */
 struct list {
-    struct list_elem head; /* List head. */
-    struct list_elem tail; /* List tail. */
+    struct list_elem head; /* List head. */ // list->head.next를 통해, 리스트의 첫 번째 실제 요소에 대한 포인터 얻음
+    struct list_elem tail; /* List tail. */ // list->tail.prev를 통해, 리스트의 마지막 실제 요소에 대한 포인터 얻음
 };
 
 /* Converts pointer to list element LIST_ELEM into a pointer to
