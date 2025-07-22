@@ -99,6 +99,19 @@ struct thread {
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem; /* List element. */
+    // elem 의 멤버 : struct list elem* prev,next => 쓰레드끼리 연결고리 역할
+
+    /* ----- exit status 필드 추가 07.21----- */
+    int exit_status;
+
+    /* ----- 파일 디스크립터 테이블 필드 추가 07.21----- */
+    struct file **fdt;
+
+    /* ----- process_wait 구현 위한 필드 추가 07.22 ---- */
+    struct list child_list;       // 자식 프로세스 리스트
+    struct list_elem child_elem;  // 부모와 자식 리스트에 연결하기 위한 요소
+
+    struct file *running_file;  // 현재 실행중인 파일
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -122,43 +135,43 @@ struct thread {
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
-void thread_init(void);
-void thread_start(void);
+void thread_init (void);
+void thread_start (void);
 
-void thread_tick(void);
-void thread_print_stats(void);
+void thread_tick (void);
+void thread_print_stats (void);
 
-typedef void thread_func(void *aux);
-tid_t thread_create(const char *name, int priority, thread_func *, void *);
+typedef void thread_func (void *aux);
+tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
-void thread_block(void);
-void thread_unblock(struct thread *);
+void thread_block (void);
+void thread_unblock (struct thread *);
 
-struct thread *thread_current(void);
-tid_t thread_tid(void);
-const char *thread_name(void);
+struct thread *thread_current (void);
+tid_t thread_tid (void);
+const char *thread_name (void);
 
-void thread_exit(void) NO_RETURN;
-void thread_yield(void);
+void thread_exit (void) NO_RETURN;
+void thread_yield (void);
 
-int thread_get_priority(void);
-void thread_set_priority(int);
+int thread_get_priority (void);
+void thread_set_priority (int);
 
-int thread_get_nice(void);
-void thread_set_nice(int);
-int thread_get_recent_cpu(void);
-int thread_get_load_avg(void);
+int thread_get_nice (void);
+void thread_set_nice (int);
+int thread_get_recent_cpu (void);
+int thread_get_load_avg (void);
 
-void do_iret(struct intr_frame *tf);
+void do_iret (struct intr_frame *tf);
 
-void thread_sleep(int64_t);
-void thread_awake();
+void thread_sleep (int64_t);
+void thread_awake ();
 
-bool wake_early(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
-bool higher_priority(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
-bool lower_priority(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
-int get_high_donation(struct thread *t);
-void remove_donations(struct lock *lock, struct thread *t);
-void set_donations_priority(struct thread *t);
+bool wake_early (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
+bool higher_priority (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
+bool lower_priority (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
+int get_high_donation (struct thread *t);
+void remove_donations (struct lock *lock, struct thread *t);
+void set_donations_priority (struct thread *t);
 
 #endif /* threads/thread.h */
