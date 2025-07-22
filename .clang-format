@@ -40,4 +40,4 @@ AlwaysBreakBeforeMultilineStrings: true
 SpaceBeforeAssignmentOperators: true
 
 # 제어문 (if, for, while 등)의 괄호 앞에 공백을 추가합니다. (예: if (cond))
-SpaceBeforeParens: Always # 안되면 ControlStatement
+SpaceBeforeParens: ControlStatements
