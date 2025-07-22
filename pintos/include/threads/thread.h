@@ -21,7 +21,7 @@ enum thread_status {
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
-#define TID_ERROR ((tid_t)-1) /* Error value for tid_t. */
+#define TID_ERROR ((tid_t) - 1) /* Error value for tid_t. */
 
 /* Thread priorities. */
 #define PRI_MIN 0      /* Lowest priority. */
@@ -160,5 +160,6 @@ bool lower_priority(const struct list_elem *a_, const struct list_elem *b_, void
 int get_high_donation(struct thread *t);
 void remove_donations(struct lock *lock, struct thread *t);
 void set_donations_priority(struct thread *t);
+void thread_try_yield(void);
 
 #endif /* threads/thread.h */

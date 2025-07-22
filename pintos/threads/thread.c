@@ -243,7 +243,7 @@ void thread_unblock(struct thread *t) {
 
     ASSERT(is_thread(t));  // 올바른 스레드인지
 
-    old_level = intr_disable();  // 인터럽트 끄기 -> 현재 동작이 원자적으로 작동하도록
+    old_level = intr_disable();           // 인터럽트 끄기 -> 현재 동작이 원자적으로 작동하도록
     ASSERT(t->status == THREAD_BLOCKED);  // 현재 스레드가 블록상태여야함.
     // list_push_back(&ready_list, &t->elem);  // 현재 스레드를 ready thread list에 넣기
     list_insert_ordered(&ready_list, &t->elem, higher_priority,
@@ -305,7 +305,7 @@ void thread_yield(void) {
     ASSERT(!intr_context());
 
     old_level = intr_disable();  // interrupt를 비활성화 시키고 이전 interrupt 상태를 반환
-    if (curr != idle_thread)  // 현재 스레드가 유휴 스레드가 아니면,
+    if (curr != idle_thread)     // 현재 스레드가 유휴 스레드가 아니면,
         // list_push_back(&ready_list, &curr->elem);  // 현재 스레드를 ready list의 맨 마지막에 넣음
         list_insert_ordered(&ready_list, &curr->elem, higher_priority, NULL);
     do_schedule(THREAD_READY);  // 죽여야할 애들 다 죽이고, 현재 스레드는 주어진
@@ -330,8 +330,7 @@ void thread_set_priority(int new_priority) {
 }
 
 /* Returns the current thread's priority. */
-int
-thread_get_priority(void) {
+int thread_get_priority(void) {
     return thread_current()->priority;
 }
 
@@ -674,9 +673,7 @@ void set_donations_priority(struct thread *holder) {
     }
 }
 
-// ================추가함수
 void thread_try_yield(void) {
     if (!list_empty(&ready_list) && thread_current() != idle_thread && !(intr_context()))
         thread_yield();
 }
-// ================
