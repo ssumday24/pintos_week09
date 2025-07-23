@@ -105,7 +105,8 @@ void syscall_handler (struct intr_frame *f UNUSED) {
         //     f->R.rax = dup2 (f->R.rdi, f->R.rsi);
         //     break;
         default:
-            exit (-1);
+            printf("Unknown system call: %d\n", syscall_number);
+            thread_exit();
             break;
     }
 }
