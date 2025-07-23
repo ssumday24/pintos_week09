@@ -106,7 +106,7 @@ void thread_init (void) {
     struct desc_ptr gdt_ds = {.size = sizeof (gdt) - 1, .address = (uint64_t)gdt};
     lgdt (&gdt_ds);
 
-    /* Init the globla thread context */
+    /* Init the global thread context */
     lock_init (&tid_lock);
     list_init (&ready_list);
     list_init (&destruction_req);
@@ -282,7 +282,7 @@ tid_t thread_tid (void) {
     return thread_current ()->tid;
 }
 
-/* Deschedules the current thread and destroys it.  Never
+/* Deschedules the current thread and destroys it. Never
    returns to the caller. */
 void thread_exit (void) {
     ASSERT (!intr_context ());
