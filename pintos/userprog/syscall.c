@@ -16,6 +16,9 @@
 #include "filesys/filesys.h"
 #include "threads/synch.h"
 
+/* 필요한 함수 선언 추가 07.23*/
+static bool check_address(void *addr);
+
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 
@@ -138,24 +141,35 @@ void exec(const char *cmd_line) {  // Case : 3
     //  성공: 반환 안 됨
     //  실패: 프로세스 종료 및 종료 상태 -1 반환
 
-    if (!valid_pointer(cmd_line)) {
-        exit(-1);
+    // ====== 주소 검사 부분 =======
+    const char *p = cmd_line;
+
+    while (true) {
+        if (!check_address((void *)p)) {
+            exit(-1);
+        }
+        if (*p == '\0') {
+            break;
+        }
+        p++;
     }
 
     char *cmd_line_copy;  // process_exec()에서 파싱해야하는데, cmd_line은 const => 복사본 만들기
     cmd_line_copy = palloc_get_page(0);  // 단일 페이지 할당
-
+    printf("1\n");
+    printf("%p\n", cmd_line_copy);
     if (cmd_line_copy == NULL) {
         exit(-1);
     }
-
+    printf("2\n");
     strlcpy(cmd_line_copy, cmd_line, PGSIZE);  // cmd_line copy
-
+    printf("3\n");
     // ===== 현재 실행 프로세스 내용 파괴 & 덮어쓰기 =====
     if (process_exec(cmd_line_copy) == -1) {
+        palloc_free_page(cmd_line_copy);
         exit(-1);  // 실패시 -1 로 종료
     }
-
+    printf("4\n");
     //도달불가
 }
 
@@ -226,7 +240,6 @@ int write(int fd, const void *buffer, unsigned size) {  // Case : 10
         // file_write는 파일 끝까지만 쓰고 실제 쓰여진 바이트 수를 반환
         bytes_written = file_write(file_obj, buffer, size);
     }
-
     return bytes_written;
 }
 
@@ -245,5 +258,14 @@ bool valid_pointer(void *p) {
     if (pml4_get_page(thread_current()->pml4, p) == NULL)
         return false;
 
+    return true;
+}
+
+// 07.23 추가 : 유효주소 검사하는 헬퍼 함수 => exec() 에서 사용 ================
+static bool check_address(void *addr) {
+    if (addr == NULL || is_kernel_vaddr(addr) ||
+        pml4_get_page(thread_current()->pml4, addr) == NULL) {
+        return false;
+    }
     return true;
 }

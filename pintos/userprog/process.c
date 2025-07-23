@@ -219,15 +219,6 @@ int process_exec(void *f_name) {
     char *file_name = f_name;
     bool success;
 
-    // 1. 파싱을 위한 복사본을 만들기
-    char *cmd_line_copy;
-    cmd_line_copy = palloc_get_page(0);
-    if (cmd_line_copy == NULL) {
-        palloc_free_page(cmd_line);
-        return -1;
-    }
-    strlcpy(cmd_line_copy, cmd_line, PGSIZE);  // cmd_line 복사
-
     /* We cannot use the intr_frame in the thread structure.
      * This is because when current thread rescheduled,
      * it stores the execution information to the member. */
@@ -239,7 +230,7 @@ int process_exec(void *f_name) {
     /* We first kill the current context */
     process_cleanup();
 
-    /** project2-Command Line Parsing */
+    /* ===== 프로젝트 2 파싱 부분 ===== */
     char *ptr, *arg;
     int arg_cnt = 0;
     char *arg_list[64];
@@ -248,18 +239,21 @@ int process_exec(void *f_name) {
         arg_list[arg_cnt++] = arg;
 
     /* And then load the binary */
-    success = load(file_name, &_if);
+    success = load(arg_list[0], &_if);
 
     /** project2-Command Line Parsing */
     argument_stack(arg_list, arg_cnt, &_if);
 
     /* If load failed, quit. */
-    palloc_free_page(file_name);
-    if (!success)
+    if (!success) {
+        palloc_free_page(f_name);
         return -1;
+    }
 
     // 디버깅용 - 주석처리
     // hex_dump (_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+
+    palloc_free_page(f_name);
 
     /* Start switched process. */
     // do_iret을 통해 CPU 레지스터에 컨텍스트 정보저장 후, 완전히 새로운 프로그램이 실행됨
