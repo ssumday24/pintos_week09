@@ -16,8 +16,8 @@
 #include "filesys/filesys.h"
 #include "threads/synch.h"
 
-void syscall_entry (void);
-void syscall_handler (struct intr_frame *);
+void syscall_entry(void);
+void syscall_handler(struct intr_frame *);
 
 /* System call.
  *
@@ -32,45 +32,47 @@ void syscall_handler (struct intr_frame *);
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-void syscall_init (void) {
-    write_msr (MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 | ((uint64_t)SEL_KCSEG) << 32);
-    write_msr (MSR_LSTAR, (uint64_t)syscall_entry);
+void syscall_init(void) {
+    write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 | ((uint64_t)SEL_KCSEG) << 32);
+    write_msr(MSR_LSTAR, (uint64_t)syscall_entry);
 
     /* The interrupt service rountine should not serve any interrupts
      * until the syscall_entry swaps the userland stack to the kernel
      * mode stack. Therefore, we masked the FLAG_FL. */
-    write_msr (MSR_SYSCALL_MASK, FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+    write_msr(MSR_SYSCALL_MASK, FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
 /* ======= 필요한 함수 선언 부분 ==============*/
-void halt (void);
-void exit (int status);
-tid_t exec (const char *cmd_line);
-int wait (tid_t pid);
-int write (int fd, const void *buffer, unsigned size);
+void halt(void);
+void exit(int status);
+void exec(const char *cmd_line);
+int wait(tid_t pid);
+int write(int fd, const void *buffer, unsigned size);
 
-bool valid_pointer (void *p);
+bool valid_pointer(void *p);
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
 /* ======= 필요한 함수 선언 부분 ==============*/
 
 /* 메인 시스템콜 인터페이스  => 커널공간  */
-void syscall_handler (struct intr_frame *f UNUSED) {
+void syscall_handler(struct intr_frame *f UNUSED) {
     // TODO: Your implementation goes here.
     // printf ("system call!\n");  //이부분 Test때는 주석처리
 
     int syscall_number = f->R.rax;  // 시스템 콜 번호는 rax 레지스터에 저장됨
     switch (syscall_number) {       // rdi -> rsi -> rdx -> r10 .....
         case SYS_HALT:              // case : 0
-            halt ();
+            halt();
             break;
         case SYS_EXIT:  // case : 1
-            exit (f->R.rdi);
+            exit(f->R.rdi);
             break;
         // case SYS_FORK:  // case : 2
         //     f->R.rax = fork_syscall (f->R.rdi, f);
         //     break;
-        // case SYS_EXEC:  // case : 3
-        //     f->R.rax = exec (f->R.rdi);
-        //     break;
+        case SYS_EXEC:  // case : 3
+            exec(f->R.rdi);
+            break;
         // case SYS_WAIT:  // case : 4
         //     f->R.rax = wait (f->R.rdi);
         //     break;
@@ -90,7 +92,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
         //     f->R.rax = read (f->R.rdi, f->R.rsi, f->R.rdx);
         //     break;
         case SYS_WRITE:  // case : 10
-            f->R.rax = write (f->R.rdi, f->R.rsi, f->R.rdx);
+            f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
             break;
         // case SYS_SEEK:
         //     seek (f->R.rdi, f->R.rsi);
@@ -105,38 +107,89 @@ void syscall_handler (struct intr_frame *f UNUSED) {
         //     f->R.rax = dup2 (f->R.rdi, f->R.rsi);
         //     break;
         default:
-            exit (-1);
+            printf("Unknown system call: %d\n", syscall_number);
+            thread_exit();
             break;
     }
 }
 ///////////////////////////////////// 커널 측 시스템콜 함수 구현 ///////////////////////////////////
-void halt (void) {
-    power_off ();
+void halt(void) {  // Case : 0
+    power_off();
 }
 
-void exit (int status) {
+void exit(int status) {  // Case : 1
     /* 1.현재 실행중인 프로세스(나) 를 종료시킨다.
         2. 내가 종료될 때의 상태를 기록해서, 부모 프로세스가 알수 있도록 한다.
     */
 
-    struct thread *cur = thread_current ();
-    cur->exit_status = status;                     // 나의 exit 상태 기록
-    printf ("%s: exit(%d)\n", cur->name, status);  //
-    thread_exit ();
+    struct thread *cur = thread_current();
+    cur->exit_status = status;  // 나의 exit 상태 기록
+    printf("%s: exit(%d)\n", cur->name, status);
+    thread_exit();
 }
 
-tid_t exec (const char *cmd_line) {
-    return -1;
+// tid_t fork(const char *thread_name) {  // Case : 2
+//     return -1;
+// }
+
+void exec(const char *cmd_line) {  // Case : 3
+    // cmd_line에 주어진 이름을 가진 실행파일로 현재 프로세스 변경하고 주어진 인자 전달
+    //  반환값 :
+    //  성공: 반환 안 됨
+    //  실패: 프로세스 종료 및 종료 상태 -1 반환
+
+    if (!valid_pointer(cmd_line)) {
+        exit(-1);
+    }
+
+    char *cmd_line_copy;  // process_exec()에서 파싱해야하는데, cmd_line은 const => 복사본 만들기
+    cmd_line_copy = palloc_get_page(0);  // 단일 페이지 할당
+
+    if (cmd_line_copy == NULL) {
+        exit(-1);
+    }
+
+    strlcpy(cmd_line_copy, cmd_line, PGSIZE);  // cmd_line copy
+
+    // ===== 현재 실행 프로세스 내용 파괴 & 덮어쓰기 =====
+    if (process_exec(cmd_line_copy) == -1) {
+        exit(-1);  // 실패시 -1 로 종료
+    }
+
+    //도달불가
 }
 
-int wait (tid_t pid) {
-    return -1;
-}
+// int wait(tid_t pid) {  // Case : 4
+//     return -1;
+// }
 
-int write (int fd, const void *buffer, unsigned size) {
+// bool create(const char *file, unsigned initial_size) {  // Case : 5
+//     if (valid_pointer(file)) {
+//         return -1;
+//     }
+//     return filesys_create(file,initial_size);
+// }
+
+// bool remove(const char *file) {  // Case : 6
+//     return -1;
+// }
+
+// int open(const char *file) {  // Case : 7
+//     return -1;
+// }
+
+// int filesize(int fd) {  // Case : 8
+//     return -1;
+// }
+
+// int read(int fd, void *buffer, unsigned size) {  // Case : 9
+//     return -1;
+// }
+
+int write(int fd, const void *buffer, unsigned size) {  // Case : 10
     // 1. 버퍼 주소의 유효성 검사
-    if (!valid_pointer (buffer)) {
-        exit (-1);  // 유효하지 않으면 exit
+    if (!valid_pointer(buffer)) {
+        exit(-1);  // 유효하지 않으면 exit
     }
 
     int bytes_written = 0;
@@ -145,7 +198,7 @@ int write (int fd, const void *buffer, unsigned size) {
     if (fd == STDOUT_FILENO) {
         // 여러 프로세스의 출력이 섞이는 것을 방지하기 위해
         // 버퍼 전체를 한번에 출력하는 putbuf()를 사용 - GitBook 참고
-        putbuf (buffer, size);
+        putbuf(buffer, size);
         bytes_written = size;
     }
 
@@ -156,7 +209,7 @@ int write (int fd, const void *buffer, unsigned size) {
 
     // 4. 그 외의 fd : fd에 해당하는 파일에 쓰기
     else {
-        struct thread *cur = thread_current ();  //현재 쓰레드
+        struct thread *cur = thread_current();  //현재 쓰레드
 
         // fd가 유효한 범위에 있는지 확인
         if (fd < 2 || fd >= 128) {
@@ -171,25 +224,25 @@ int write (int fd, const void *buffer, unsigned size) {
         }
 
         // file_write는 파일 끝까지만 쓰고 실제 쓰여진 바이트 수를 반환
-        bytes_written = file_write (file_obj, buffer, size);
+        bytes_written = file_write(file_obj, buffer, size);
     }
 
     return bytes_written;
 }
 
-//////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
 // 포인터가 valid 한지 확인
-bool valid_pointer (void *p) {
+bool valid_pointer(void *p) {
     // 널 주소 -> false;
     if (p == NULL)
         return false;
 
     // 커널 영역의 주소 -> false
-    if (is_kernel_vaddr (p))
+    if (is_kernel_vaddr(p))
         return false;
 
     // 매핑되지 않은 페이지 -> false
-    if (pml4_get_page (thread_current ()->pml4, p) == NULL)
+    if (pml4_get_page(thread_current()->pml4, p) == NULL)
         return false;
 
     return true;
