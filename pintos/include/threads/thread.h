@@ -105,7 +105,8 @@ struct thread {
     int exit_status;
 
     /* ----- 파일 디스크립터 테이블 필드 추가 07.21----- */
-    struct file **fdt;
+    struct file **fdt;  // 쓰레드끼리는 FD 테이블 공유
+    // 프로세스는 자기만의 FD 테이블을 하나씩 갖고 있음
 
     /* ----- process_wait 구현 위한 필드 추가 07.22 ---- */
     struct list child_list;       // 자식 프로세스 리스트

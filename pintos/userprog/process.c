@@ -172,19 +172,21 @@ error:
 }
 
 // 유저 스택에 파싱된 토큰을 저장하는 함수 - 수정 07.22
-void argument_stack(char **argv, int argc, struct intr_frame *if_) {
-    char *arg_addresses[128];  // 각 인자 문자열의 주소를 저장할 배열
+
+static void argument_stack(char **argv, int argc, struct intr_frame *if_, void *buffer) {
+    char **arg_addresses = buffer;
+
 
     // 1. 문자열 데이터 저장 (역순)
-    //    실제 문자열 내용을 스택에 push하고, 각 문자열의 시작 주소를 저장
     for (int i = argc - 1; i >= 0; i--) {
-        int str_len = strlen(argv[i]) + 1;  // 널 문자 포함 길이
-        if_->rsp = if_->rsp - str_len;
+        int str_len = strlen(argv[i]) + 1;
+        if_->rsp -= str_len;
         memcpy(if_->rsp, argv[i], str_len);
-        arg_addresses[i] = if_->rsp;  // 문자열의 시작 주소 저장
+        arg_addresses[i] = (char *)if_->rsp;
+
     }
 
-    // 2. 패딩 정렬 => 8배수
+    // 2. 패딩 정렬
     int padding = if_->rsp % 8;
     if (padding != 0) {
         if_->rsp -= padding;
@@ -192,37 +194,39 @@ void argument_stack(char **argv, int argc, struct intr_frame *if_) {
     }
 
     // 3. argv 배열 저장 (역순)
-    //    argv의 끝을 알려주는 NULL 부터 시작, 저장해둔 주소 push
-
-    // argv[argc] (널 포인터) push
     if_->rsp -= sizeof(char *);
-    *(uint64_t *)if_->rsp = 0;
+    *(uint64_t *)if_->rsp = 0; // argv[argc] (NULL)
 
     for (int i = argc - 1; i >= 0; i--) {
         if_->rsp -= sizeof(char *);
-        *(char **)if_->rsp = arg_addresses[i];  // memcpy 대신 직접 대입
+        *(char **)if_->rsp = arg_addresses[i];
     }
 
-    // 4. 레지스터 설정 (가장 중요한 부분)
-    //    - rdi: 인자의 개수 (argc)
-    //    - rsi: argv 배열의 시작 주소, 현재 rsp가 바로 그 위치를 가리킴
+    // 4. 레지스터 설정
     if_->R.rdi = argc;
     if_->R.rsi = if_->rsp;
 
     // 5. 가짜 반환 주소 push => 함수 호출규약 준수
+
     if_->rsp -= sizeof(void *);
     *(uint64_t *)if_->rsp = 0;
 }
 
+// 현재 실행 프로세스 내용 파괴 & 덮어쓰기
 // 현재 실행 컨텍스트를 f_name 으로 스위칭한다. (실패시 -1 return)
 int process_exec(void *f_name) {
     char *file_name = f_name;
     bool success;
-
-    /* We cannot use the intr_frame in the thread structure.
-     * This is because when current thread rescheduled,
-     * it stores the execution information to the member. */
     struct intr_frame _if;
+
+    // 임시 버퍼를 위한 페이지를 한 번만 할당
+    void *buffer = palloc_get_page(0);
+    if (buffer == NULL) {
+        palloc_free_page(f_name);
+        return -1;
+    }
+    char **arg_list = buffer;
+
     _if.ds = _if.es = _if.ss = SEL_UDSEG;
     _if.cs = SEL_UCSEG;
     _if.eflags = FLAG_IF | FLAG_MBS;
@@ -230,27 +234,39 @@ int process_exec(void *f_name) {
     /* We first kill the current context */
     process_cleanup();
 
-    /** project2-Command Line Parsing */
     char *ptr, *arg;
     int arg_cnt = 0;
-    char *arg_list[64];
+  
+    for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr)) {
+        if (arg_cnt >= 512) { 
+            break;
+        }
 
-    for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr))
         arg_list[arg_cnt++] = arg;
+    }
 
-    /* And then load the binary */
-    success = load(file_name, &_if);
-
-    /** project2-Command Line Parsing */
-    argument_stack(arg_list, arg_cnt, &_if);
-
-    /* If load failed, quit. */
-    palloc_free_page(file_name);
-    if (!success)
+    // 파싱된 인자가 없으면 로드 실패 처리
+    if (arg_cnt == 0) {
+        success = false;
+    } else {
+        success = load(arg_list[0], &_if);
+    }
+    
+    // 로드 실패 시 할당된 모든 페이지를 해제
+    if (!success) {
+        palloc_free_page(buffer);
+        palloc_free_page(f_name);
         return -1;
+    }
 
-    // 디버깅용 - 주석처리
-    // hex_dump (_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+    argument_stack(arg_list, arg_cnt, &_if, buffer);
+    
+    // 모든 임시 메모리를 해제
+    palloc_free_page(buffer);
+    palloc_free_page(f_name);
+
+    // 디버깅용 -> 채점시 주석 처리
+    // hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
     /* Start switched process. */
     do_iret(&_if);
@@ -268,8 +284,11 @@ int process_exec(void *f_name) {
  * does nothing. */
 int process_wait(tid_t child_tid) {
     thread_sleep(300);
-    return 1;
+    return -1;
+
     /*
+     문제점 : OS가, 프로세스가 끝나는것을 기다리지 않고 먼저 종료해버린다.
+
      목표 : 자식 프로세스가 끝날 때까지 부모 프로세스를 잠시 대기(block) 시켜놓고,
      자식이 종료되면 그 상태 값을 받아 오기
     */

@@ -11,13 +11,17 @@
 #include "threads/thread.h"
 #include "userprog/gdt.h"
 
-/* 헤더 파일 , 전연 락 변수 추가 07.22 */
+/* 헤더 파일 추가 07.22 */
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "threads/palloc.h"
 #include "threads/synch.h"
 
-void syscall_entry (void);
-void syscall_handler (struct intr_frame *);
+/* 함수 선언 추가 07.23 */
+static bool check_address(void *addr);
+
+void syscall_entry(void);
+void syscall_handler(struct intr_frame *);
 
 /* System call.
  *
@@ -32,57 +36,59 @@ void syscall_handler (struct intr_frame *);
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-void syscall_init (void) {
-    write_msr (MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 | ((uint64_t)SEL_KCSEG) << 32);
-    write_msr (MSR_LSTAR, (uint64_t)syscall_entry);
+void syscall_init(void) {
+    write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 | ((uint64_t)SEL_KCSEG) << 32);
+    write_msr(MSR_LSTAR, (uint64_t)syscall_entry);
 
     /* The interrupt service rountine should not serve any interrupts
      * until the syscall_entry swaps the userland stack to the kernel
      * mode stack. Therefore, we masked the FLAG_FL. */
-    write_msr (MSR_SYSCALL_MASK, FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+    write_msr(MSR_SYSCALL_MASK, FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
-/* ======= 필요한 함수 선언 부분 ==============*/
-void halt (void);
-void exit (int status);
-tid_t exec (const char *cmd_line);
-int wait (tid_t pid);
-int write (int fd, const void *buffer, unsigned size);
-
-bool valid_pointer (void *p);
-/* ======= 필요한 함수 선언 부분 ==============*/
+/* ======= 필요한 함수 선언 ==============*/
+void halt(void);
+void exit(int status);
+void exec(const char *cmd_line);
+int wait(tid_t pid);
+int write(int fd, const void *buffer, unsigned size);
+bool create(const char *file, unsigned initial_size);
+int open(const char *file_name);
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+/* ======================================*/
 
 /* 메인 시스템콜 인터페이스  => 커널공간  */
-void syscall_handler (struct intr_frame *f UNUSED) {
+void syscall_handler(struct intr_frame *f UNUSED) {
     // TODO: Your implementation goes here.
     // printf ("system call!\n");  //이부분 Test때는 주석처리
 
     int syscall_number = f->R.rax;  // 시스템 콜 번호는 rax 레지스터에 저장됨
     switch (syscall_number) {       // rdi -> rsi -> rdx -> r10 .....
         case SYS_HALT:              // case : 0
-            halt ();
+            halt();
             break;
         case SYS_EXIT:  // case : 1
-            exit (f->R.rdi);
+            exit(f->R.rdi);
             break;
         // case SYS_FORK:  // case : 2
         //     f->R.rax = fork_syscall (f->R.rdi, f);
         //     break;
-        // case SYS_EXEC:  // case : 3
-        //     f->R.rax = exec (f->R.rdi);
-        //     break;
+        case SYS_EXEC:  // case : 3
+            exec(f->R.rdi);
+            break;
         // case SYS_WAIT:  // case : 4
         //     f->R.rax = wait (f->R.rdi);
         //     break;
-        // case SYS_CREATE:  // case : 5
-        //     f->R.rax = create (f->R.rdi, f->R.rsi);
-        //     break;
+        case SYS_CREATE:  // case : 5
+            f->R.rax = create(f->R.rdi, f->R.rsi);
+            break;
         // case SYS_REMOVE:  // case : 6
         //     f->R.rax = remove (f->R.rdi);
         //     break;
-        // case SYS_OPEN:  // case : 7
-        //     f->R.rax = open (f->R.rdi);
-        //     break;
+        case SYS_OPEN:  // case : 7
+            f->R.rax = open(f->R.rdi);
+            break;
         // case SYS_FILESIZE:  // case : 8
         //     f->R.rax = filesize (f->R.rdi);
         //     break;
@@ -90,7 +96,7 @@ void syscall_handler (struct intr_frame *f UNUSED) {
         //     f->R.rax = read (f->R.rdi, f->R.rsi, f->R.rdx);
         //     break;
         case SYS_WRITE:  // case : 10
-            f->R.rax = write (f->R.rdi, f->R.rsi, f->R.rdx);
+            f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
             break;
         // case SYS_SEEK:
         //     seek (f->R.rdi, f->R.rsi);
@@ -105,38 +111,162 @@ void syscall_handler (struct intr_frame *f UNUSED) {
         //     f->R.rax = dup2 (f->R.rdi, f->R.rsi);
         //     break;
         default:
-            exit (-1);
+            printf("Unknown system call: %d\n", syscall_number);
+            thread_exit();
             break;
     }
 }
 ///////////////////////////////////// 커널 측 시스템콜 함수 구현 ///////////////////////////////////
-void halt (void) {
-    power_off ();
+void halt(void) {  // Case : 0
+    power_off();
 }
 
-void exit (int status) {
+void exit(int status) {  // Case : 1
     /* 1.현재 실행중인 프로세스(나) 를 종료시킨다.
         2. 내가 종료될 때의 상태를 기록해서, 부모 프로세스가 알수 있도록 한다.
     */
 
-    struct thread *cur = thread_current ();
-    cur->exit_status = status;                     // 나의 exit 상태 기록
-    printf ("%s: exit(%d)\n", cur->name, status);  //
-    thread_exit ();
+    struct thread *cur = thread_current();
+    cur->exit_status = status;  // 나의 exit 상태 기록
+    printf("%s: exit(%d)\n", cur->name, status);
+    thread_exit();
 }
 
-tid_t exec (const char *cmd_line) {
-    return -1;
+// tid_t fork(const char *thread_name) {  // Case : 2
+//     exit(-1);
+// }
+
+void exec(const char *cmd_line) {
+    // 1. 유저가 제공한 포인터가 유효한지 1차적으로 확인
+    if (!check_address((void *)cmd_line)) {
+        exit(-1);
+    }
+
+    // 2. 커널 공간에 cmd_line의 복사본을 만들기 위해 페이지 할당
+    char *cmd_line_copy = palloc_get_page(0);
+    if (cmd_line_copy == NULL) {
+        exit(-1);
+    }
+
+    // 3. strlcpy를 사용하는 대신, 한 바이트씩 주소를 확인하며 안전하게 복사
+    const char *user_p = cmd_line;
+    char *kernel_p = cmd_line_copy;
+
+    while (true) {
+        // 읽으려는 유저 주소가 유효한지 매번 확인
+        if (!check_address((void *)user_p)) {
+            palloc_free_page(cmd_line_copy);
+            exit(-1);
+        }
+
+        // 데이터 복사
+        *kernel_p = *user_p;
+
+        // 문자열의 끝이면 종료
+        if (*user_p == '\0') {
+            break;
+        }
+
+        user_p++;
+        kernel_p++;
+
+        // 페이지 크기를 넘어서는 복사를 방지
+        if ((size_t)(kernel_p - cmd_line_copy) >= PGSIZE) {
+            palloc_free_page(cmd_line_copy);
+            exit(-1);
+        }
+    }
+
+    // 4. 안전하게 복사된 커널 포인터(cmd_line_copy)를 process_exec에 전달
+    if (process_exec(cmd_line_copy) == -1) {
+        // process_exec은 성공하면 돌아오지 않으므로, 실패 시에만 종료
+        exit(-1);
+    }
 }
 
-int wait (tid_t pid) {
-    return -1;
+// int wait(tid_t pid) {  // Case : 4
+//     return -1;
+// }
+
+bool create(const char *file, unsigned initial_size) {  // Case : 5
+    if (!check_address(file)) {
+        exit(-1);
+    }
+    return filesys_create(file, initial_size);
 }
 
-int write (int fd, const void *buffer, unsigned size) {
+// bool remove(const char *file) {  // Case : 6
+//     return -1;
+// }
+
+#define FDT_MAX_SIZE 128
+int open(const char *file_name) {  // Case : 7
+
+    if (!check_address(file_name)) {
+        exit(-1);  //유효하지 않은 파일이면 exit
+    }
+
+    // 파일 이름을 커널 메모리로 안전하게 복사
+    char *file_name_copy = palloc_get_page(0);
+    if (file_name_copy == NULL) {
+        return -1;  // 커널 메모리 부족
+    }
+
+    //복사
+    strlcpy(file_name_copy, file_name, PGSIZE);
+
+    // 파일 열기
+    struct file *file_ptr = filesys_open(file_name_copy);
+    palloc_free_page(file_name_copy);
+
+    if (file_ptr == NULL) {
+        return -1;  // 정상적인 실패상황
+    }
+
+    // 비어있는 FD 테이블 번호 찾기
+    struct thread *cur = thread_current();  //현재 쓰레드 ptr
+    int fd = -1;
+
+    // fd 테이블이 없으면 새로 할당
+    if (cur->fdt == NULL) {
+        cur->fdt = palloc_get_page(PAL_ZERO);  // PAL_ZERO로 초기화
+
+        //예외처리
+        if (cur->fdt == NULL) {
+            file_close(file_ptr);
+            return -1;
+        }
+    }
+
+    // FD 테이블의 최대번호는 몇으로 해야할까?
+    for (int i = 2; i < FDT_MAX_SIZE; i++) {
+        if ((cur->fdt)[i] == NULL)  // fd 인덱스가 비어있다면
+        {
+            cur->fdt[i] = file_ptr;  // fd와 파일 연결
+            fd = i;                  // 찾은 fd저장
+            break;
+        }
+    }
+
+    if (fd == -1) {
+        file_close(file_ptr);
+    }
+
+    return fd;  // 목표한 fd 반환
+}
+
+// int filesize(int fd) {  // Case : 8
+//     return -1;
+// }
+
+// int read(int fd, void *buffer, unsigned size) {  // Case : 9
+//     return -1;
+// }
+
+int write(int fd, const void *buffer, unsigned size) {  // Case : 10
     // 1. 버퍼 주소의 유효성 검사
-    if (!valid_pointer (buffer)) {
-        exit (-1);  // 유효하지 않으면 exit
+    if (!check_address(buffer)) {
+        exit(-1);  // 유효하지 않으면 exit
     }
 
     int bytes_written = 0;
@@ -145,7 +275,7 @@ int write (int fd, const void *buffer, unsigned size) {
     if (fd == STDOUT_FILENO) {
         // 여러 프로세스의 출력이 섞이는 것을 방지하기 위해
         // 버퍼 전체를 한번에 출력하는 putbuf()를 사용 - GitBook 참고
-        putbuf (buffer, size);
+        putbuf(buffer, size);
         bytes_written = size;
     }
 
@@ -156,7 +286,7 @@ int write (int fd, const void *buffer, unsigned size) {
 
     // 4. 그 외의 fd : fd에 해당하는 파일에 쓰기
     else {
-        struct thread *cur = thread_current ();  //현재 쓰레드
+        struct thread *cur = thread_current();  //현재 쓰레드
 
         // fd가 유효한 범위에 있는지 확인
         if (fd < 2 || fd >= 128) {
@@ -171,26 +301,34 @@ int write (int fd, const void *buffer, unsigned size) {
         }
 
         // file_write는 파일 끝까지만 쓰고 실제 쓰여진 바이트 수를 반환
-        bytes_written = file_write (file_obj, buffer, size);
+        bytes_written = file_write(file_obj, buffer, size);
     }
-
     return bytes_written;
 }
 
-//////////////////////////////////////////////
-// 포인터가 valid 한지 확인
-bool valid_pointer (void *p) {
-    // 널 주소 -> false;
-    if (p == NULL)
+//////////////////////////////////////////////////////////////////
+// 07.23 추가 : 유효주소 검사하는 헬퍼 함수 => exec() 에서 사용
+static bool check_address(void *addr) {
+    // NULL 포인터 체크
+    if (addr == NULL) {
         return false;
+    }
 
-    // 커널 영역의 주소 -> false
-    if (is_kernel_vaddr (p))
+    // 커널 주소 영역 체크
+    if (is_kernel_vaddr(addr)) {
         return false;
+    }
 
-    // 매핑되지 않은 페이지 -> false
-    if (pml4_get_page (thread_current ()->pml4, p) == NULL)
+    // 현재 스레드의 페이지 테이블에서 해당 주소가 매핑되어 있는지 확인
+    struct thread *cur = thread_current();
+    if (cur->pml4 == NULL) {
         return false;
+    }
+
+    void *page = pml4_get_page(cur->pml4, addr);
+    if (page == NULL) {
+        return false;
+    }
 
     return true;
 }
