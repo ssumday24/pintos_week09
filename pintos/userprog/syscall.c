@@ -52,7 +52,6 @@ void exec(const char *cmd_line);
 int wait(tid_t pid);
 int write(int fd, const void *buffer, unsigned size);
 
-bool valid_pointer(void *p);
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 /* ======= 필요한 함수 선언 부분 ==============*/
@@ -141,6 +140,9 @@ void exec(const char *cmd_line) {  // Case : 3
     //  성공: 반환 안 됨
     //  실패: 프로세스 종료 및 종료 상태 -1 반환
 
+    if (!check_address((void *)cmd_line)) {
+        exit(-1);
+    }
     // ====== 주소 검사 부분 =======
     const char *p = cmd_line;
 
@@ -156,20 +158,19 @@ void exec(const char *cmd_line) {  // Case : 3
 
     char *cmd_line_copy;  // process_exec()에서 파싱해야하는데, cmd_line은 const => 복사본 만들기
     cmd_line_copy = palloc_get_page(0);  // 단일 페이지 할당
-    printf("1\n");
+
     printf("%p\n", cmd_line_copy);
     if (cmd_line_copy == NULL) {
         exit(-1);
     }
-    printf("2\n");
+    printf("MY NEW KERNEL IS DEFINITELY RUNNING!!!!");
     strlcpy(cmd_line_copy, cmd_line, PGSIZE);  // cmd_line copy
-    printf("3\n");
+
     // ===== 현재 실행 프로세스 내용 파괴 & 덮어쓰기 =====
     if (process_exec(cmd_line_copy) == -1) {
-        palloc_free_page(cmd_line_copy);
         exit(-1);  // 실패시 -1 로 종료
     }
-    printf("4\n");
+
     //도달불가
 }
 
@@ -178,7 +179,7 @@ void exec(const char *cmd_line) {  // Case : 3
 // }
 
 // bool create(const char *file, unsigned initial_size) {  // Case : 5
-//     if (valid_pointer(file)) {
+//     if (check_address(file)) {
 //         return -1;
 //     }
 //     return filesys_create(file,initial_size);
@@ -202,7 +203,7 @@ void exec(const char *cmd_line) {  // Case : 3
 
 int write(int fd, const void *buffer, unsigned size) {  // Case : 10
     // 1. 버퍼 주소의 유효성 검사
-    if (!valid_pointer(buffer)) {
+    if (!check_address(buffer)) {
         exit(-1);  // 유효하지 않으면 exit
     }
 
@@ -244,28 +245,28 @@ int write(int fd, const void *buffer, unsigned size) {  // Case : 10
 }
 
 //////////////////////////////////////////////////////////////////
-// 포인터가 valid 한지 확인
-bool valid_pointer(void *p) {
-    // 널 주소 -> false;
-    if (p == NULL)
-        return false;
-
-    // 커널 영역의 주소 -> false
-    if (is_kernel_vaddr(p))
-        return false;
-
-    // 매핑되지 않은 페이지 -> false
-    if (pml4_get_page(thread_current()->pml4, p) == NULL)
-        return false;
-
-    return true;
-}
-
-// 07.23 추가 : 유효주소 검사하는 헬퍼 함수 => exec() 에서 사용 ================
+// 07.23 추가 : 유효주소 검사하는 헬퍼 함수 => exec() 에서 사용
 static bool check_address(void *addr) {
-    if (addr == NULL || is_kernel_vaddr(addr) ||
-        pml4_get_page(thread_current()->pml4, addr) == NULL) {
+    // NULL 포인터 체크
+    if (addr == NULL) {
         return false;
     }
+
+    // 커널 주소 영역 체크
+    if (is_kernel_vaddr(addr)) {
+        return false;
+    }
+
+    // 현재 스레드의 페이지 테이블에서 해당 주소가 매핑되어 있는지 확인
+    struct thread *cur = thread_current();
+    if (cur->pml4 == NULL) {
+        return false;
+    }
+
+    void *page = pml4_get_page(cur->pml4, addr);
+    if (page == NULL) {
+        return false;
+    }
+
     return true;
 }
