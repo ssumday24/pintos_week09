@@ -28,3 +28,10 @@ core
 
 # macOS
 .DS_Store
+
+
+#clion 
+.idea
+pintos/.idea
+.vscode
+pintos/.vscode

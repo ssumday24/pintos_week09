@@ -51,11 +51,11 @@ tid_t process_create_initd(const char *file_name) {
         return TID_ERROR;
     strlcpy(fn_copy, file_name, PGSIZE);
 
-    //원본 file_name 은 수정하면 안되므로, 복사본 thread_name 만들기
+    // 원본 file_name 은 수정하면 안되므로, 복사본 thread_name 만들기
     char thread_name[16];
     strlcpy(thread_name, file_name, sizeof(thread_name));
 
-    //복사본인 thread_name 파싱
+    // 복사본인 thread_name 파싱
     char *save_ptr;
     strtok_r(thread_name, " ", &save_ptr);
 
@@ -172,9 +172,10 @@ error:
 }
 
 // 유저 스택에 파싱된 토큰을 저장하는 함수 - 수정 07.22
+
 static void argument_stack(char **argv, int argc, struct intr_frame *if_, void *buffer) {
-    // palloc_get_page 호출을 삭제하고, 전달받은 buffer를 사용합니다.
     char **arg_addresses = buffer;
+
 
     // 1. 문자열 데이터 저장 (역순)
     for (int i = argc - 1; i >= 0; i--) {
@@ -182,6 +183,7 @@ static void argument_stack(char **argv, int argc, struct intr_frame *if_, void *
         if_->rsp -= str_len;
         memcpy(if_->rsp, argv[i], str_len);
         arg_addresses[i] = (char *)if_->rsp;
+
     }
 
     // 2. 패딩 정렬
@@ -204,7 +206,8 @@ static void argument_stack(char **argv, int argc, struct intr_frame *if_, void *
     if_->R.rdi = argc;
     if_->R.rsi = if_->rsp;
 
-    // 5. 가짜 반환 주소
+    // 5. 가짜 반환 주소 push => 함수 호출규약 준수
+
     if_->rsp -= sizeof(void *);
     *(uint64_t *)if_->rsp = 0;
 }
@@ -216,7 +219,7 @@ int process_exec(void *f_name) {
     bool success;
     struct intr_frame _if;
 
-    // 임시 버퍼를 위한 페이지를 한 번만 할당합니다.
+    // 임시 버퍼를 위한 페이지를 한 번만 할당
     void *buffer = palloc_get_page(0);
     if (buffer == NULL) {
         palloc_free_page(f_name);
@@ -228,15 +231,17 @@ int process_exec(void *f_name) {
     _if.cs = SEL_UCSEG;
     _if.eflags = FLAG_IF | FLAG_MBS;
 
+    /* We first kill the current context */
     process_cleanup();
 
     char *ptr, *arg;
     int arg_cnt = 0;
-    // 4KB 페이지는 512개의 포인터를 저장할 수 있으므로 512로 제한합니다.
+  
     for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr)) {
         if (arg_cnt >= 512) { 
             break;
         }
+
         arg_list[arg_cnt++] = arg;
     }
 
@@ -247,23 +252,23 @@ int process_exec(void *f_name) {
         success = load(arg_list[0], &_if);
     }
     
-    // 로드 실패 시 할당된 모든 페이지를 해제합니다.
+    // 로드 실패 시 할당된 모든 페이지를 해제
     if (!success) {
         palloc_free_page(buffer);
         palloc_free_page(f_name);
         return -1;
     }
 
-    // argument_stack은 이제 임시 버퍼를 받아 사용합니다.
     argument_stack(arg_list, arg_cnt, &_if, buffer);
     
-    // 모든 임시 메모리를 해제합니다.
+    // 모든 임시 메모리를 해제
     palloc_free_page(buffer);
     palloc_free_page(f_name);
 
-    // 스택 확인용 hex_dump는 이제 필요 없으므로 제거합니다.
+    // 디버깅용 -> 채점시 주석 처리
     // hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
+    /* Start switched process. */
     do_iret(&_if);
     NOT_REACHED();
 }
@@ -280,6 +285,7 @@ int process_exec(void *f_name) {
 int process_wait(tid_t child_tid) {
     thread_sleep(300);
     return -1;
+
     /*
      문제점 : OS가, 프로세스가 끝나는것을 기다리지 않고 먼저 종료해버린다.
 

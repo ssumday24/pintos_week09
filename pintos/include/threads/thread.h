@@ -114,6 +114,12 @@ struct thread {
 
     struct file *running_file;  // 현재 실행중인 파일
 
+    /* ----- fork용으로 추가 07.23 ---- */
+    struct semaphore wait_sema;  // wait 동기화용
+    struct semaphore fork_sema;  // fork 동기화용
+    bool waited;                 //  wait 체크
+    struct thread *parent;       // 부모 스레드 포인터
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint64_t *pml4; /* Page map level 4 */
