@@ -92,9 +92,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         // case SYS_FILESIZE:  // case : 8
         //     f->R.rax = filesize (f->R.rdi);
         //     break;
-        // case SYS_READ:  // case : 9
-        //     f->R.rax = read (f->R.rdi, f->R.rsi, f->R.rdx);
-        //     break;
+        case SYS_READ:  // case : 9
+            f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+            break;
         case SYS_WRITE:  // case : 10
             f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
             break;
@@ -104,9 +104,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         // case SYS_TELL:
         //     f->R.rax = tell (f->R.rdi);
         //     break;
-        // case SYS_CLOSE:
-        //     close (f->R.rdi);
-        //     break;
+        case SYS_CLOSE:  // case : 13
+            close(f->R.rdi);
+            break;
         // case SYS_DUP2:
         //     f->R.rax = dup2 (f->R.rdi, f->R.rsi);
         //     break;
@@ -259,9 +259,10 @@ int open(const char *file_name) {  // Case : 7
 //     return -1;
 // }
 
-// int read(int fd, void *buffer, unsigned size) {  // Case : 9
-//     return -1;
-// }
+int read(int fd, void *buffer, unsigned size) {  // Case : 9
+
+    return -1;
+}
 
 int write(int fd, const void *buffer, unsigned size) {  // Case : 10
     // 1. 버퍼 주소의 유효성 검사
@@ -304,6 +305,26 @@ int write(int fd, const void *buffer, unsigned size) {  // Case : 10
         bytes_written = file_write(file_obj, buffer, size);
     }
     return bytes_written;
+}
+
+void close(int fd) {  // Case : 13
+
+    // 1. fd 유효성 검사
+    if (fd <= 1 || fd >= FDT_MAX_SIZE) {
+        exit(-1);
+    }
+
+    // 2. 파일 객체 찾기
+    struct thread *cur = thread_current();
+    if (cur->fdt[fd] == NULL) {
+        exit(-1);  // fd 테이블에 없으면 에러
+    }
+
+    // 3. 커널의 파일 닫기 함수 호출
+    file_close(cur->fdt[fd]);  // 여기서 cur->fdr[fd] 가 가리키는 "파일"을 free
+
+    // 4. FDT 슬롯 비우기
+    cur->fdt[fd] = NULL;
 }
 
 //////////////////////////////////////////////////////////////////
