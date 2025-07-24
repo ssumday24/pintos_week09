@@ -172,19 +172,19 @@ error:
 }
 
 // 유저 스택에 파싱된 토큰을 저장하는 함수 - 수정 07.22
-void argument_stack(char **argv, int argc, struct intr_frame *if_) {
-    char *arg_addresses[128];  // 각 인자 문자열의 주소를 저장할 배열
+static void argument_stack(char **argv, int argc, struct intr_frame *if_, void *buffer) {
+    // palloc_get_page 호출을 삭제하고, 전달받은 buffer를 사용합니다.
+    char **arg_addresses = buffer;
 
     // 1. 문자열 데이터 저장 (역순)
-    //    실제 문자열 내용을 스택에 push하고, 각 문자열의 시작 주소를 저장
     for (int i = argc - 1; i >= 0; i--) {
-        int str_len = strlen(argv[i]) + 1;  // 널 문자 포함 길이
-        if_->rsp = if_->rsp - str_len;
+        int str_len = strlen(argv[i]) + 1;
+        if_->rsp -= str_len;
         memcpy(if_->rsp, argv[i], str_len);
-        arg_addresses[i] = if_->rsp;  // 문자열의 시작 주소 저장
+        arg_addresses[i] = (char *)if_->rsp;
     }
 
-    // 2. 패딩 정렬 => 8배수
+    // 2. 패딩 정렬
     int padding = if_->rsp % 8;
     if (padding != 0) {
         if_->rsp -= padding;
@@ -192,71 +192,78 @@ void argument_stack(char **argv, int argc, struct intr_frame *if_) {
     }
 
     // 3. argv 배열 저장 (역순)
-    //    argv의 끝을 알려주는 NULL 부터 시작, 저장해둔 주소 push
-
-    // argv[argc] (널 포인터) push
     if_->rsp -= sizeof(char *);
-    *(uint64_t *)if_->rsp = 0;
+    *(uint64_t *)if_->rsp = 0; // argv[argc] (NULL)
 
     for (int i = argc - 1; i >= 0; i--) {
         if_->rsp -= sizeof(char *);
-        *(char **)if_->rsp = arg_addresses[i];  // memcpy 대신 직접 대입
+        *(char **)if_->rsp = arg_addresses[i];
     }
 
-    // 4. 레지스터 설정 (가장 중요한 부분)
-    //    - rdi: 인자의 개수 (argc)
-    //    - rsi: argv 배열의 시작 주소, 현재 rsp가 바로 그 위치를 가리킴
+    // 4. 레지스터 설정
     if_->R.rdi = argc;
     if_->R.rsi = if_->rsp;
 
-    // 5. 가짜 반환 주소 push => 함수 호출규약 준수
+    // 5. 가짜 반환 주소
     if_->rsp -= sizeof(void *);
     *(uint64_t *)if_->rsp = 0;
 }
+
 // 현재 실행 프로세스 내용 파괴 & 덮어쓰기
 // 현재 실행 컨텍스트를 f_name 으로 스위칭한다. (실패시 -1 return)
 int process_exec(void *f_name) {
     char *file_name = f_name;
     bool success;
-
-    /* We cannot use the intr_frame in the thread structure.
-     * This is because when current thread rescheduled,
-     * it stores the execution information to the member. */
     struct intr_frame _if;
+
+    // 임시 버퍼를 위한 페이지를 한 번만 할당합니다.
+    void *buffer = palloc_get_page(0);
+    if (buffer == NULL) {
+        palloc_free_page(f_name);
+        return -1;
+    }
+    char **arg_list = buffer;
+
     _if.ds = _if.es = _if.ss = SEL_UDSEG;
     _if.cs = SEL_UCSEG;
     _if.eflags = FLAG_IF | FLAG_MBS;
 
-    /* We first kill the current context */
     process_cleanup();
 
-    /* ===== 프로젝트 2 파싱 부분 ===== */
     char *ptr, *arg;
     int arg_cnt = 0;
-    char *arg_list[64];
-
-    for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr))
+    // 4KB 페이지는 512개의 포인터를 저장할 수 있으므로 512로 제한합니다.
+    for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr)) {
+        if (arg_cnt >= 512) { 
+            break;
+        }
         arg_list[arg_cnt++] = arg;
+    }
 
-    /* And then load the binary */
-    success = load(arg_list[0], &_if);
-
-    /** project2-Command Line Parsing */
-    argument_stack(arg_list, arg_cnt, &_if);
-
-    /* If load failed, quit. */
+    // 파싱된 인자가 없으면 로드 실패 처리
+    if (arg_cnt == 0) {
+        success = false;
+    } else {
+        success = load(arg_list[0], &_if);
+    }
+    
+    // 로드 실패 시 할당된 모든 페이지를 해제합니다.
     if (!success) {
+        palloc_free_page(buffer);
         palloc_free_page(f_name);
         return -1;
     }
 
-    // 디버깅용 - 주석처리
-    // hex_dump (_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
-
+    // argument_stack은 이제 임시 버퍼를 받아 사용합니다.
+    argument_stack(arg_list, arg_cnt, &_if, buffer);
+    
+    // 모든 임시 메모리를 해제합니다.
+    palloc_free_page(buffer);
     palloc_free_page(f_name);
 
-    /* Start switched process. */
-    // do_iret을 통해 CPU 레지스터에 컨텍스트 정보저장 후, 완전히 새로운 프로그램이 실행됨
+    // 스택 확인용 hex_dump는 이제 필요 없으므로 제거합니다.
+    // hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+
     do_iret(&_if);
     NOT_REACHED();
 }

@@ -11,12 +11,13 @@
 #include "threads/thread.h"
 #include "userprog/gdt.h"
 
-/* 헤더 파일 , 전연 락 변수 추가 07.22 */
+/* 헤더 파일 추가 07.22 */
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "threads/palloc.h"
 #include "threads/synch.h"
 
-/* 필요한 함수 선언 추가 07.23*/
+/* 함수 선언 추가 07.23 */
 static bool check_address(void *addr);
 
 void syscall_entry(void);
@@ -45,16 +46,17 @@ void syscall_init(void) {
     write_msr(MSR_SYSCALL_MASK, FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
-/* ======= 필요한 함수 선언 부분 ==============*/
+/* ======= 필요한 함수 선언 ==============*/
 void halt(void);
 void exit(int status);
 void exec(const char *cmd_line);
 int wait(tid_t pid);
 int write(int fd, const void *buffer, unsigned size);
-
+bool create(const char *file, unsigned initial_size);
+int open(const char *file_name);
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
-/* ======= 필요한 함수 선언 부분 ==============*/
+/* ======================================*/
 
 /* 메인 시스템콜 인터페이스  => 커널공간  */
 void syscall_handler(struct intr_frame *f UNUSED) {
@@ -78,15 +80,15 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         // case SYS_WAIT:  // case : 4
         //     f->R.rax = wait (f->R.rdi);
         //     break;
-        // case SYS_CREATE:  // case : 5
-        //     f->R.rax = create (f->R.rdi, f->R.rsi);
-        //     break;
+        case SYS_CREATE:  // case : 5
+            f->R.rax = create(f->R.rdi, f->R.rsi);
+            break;
         // case SYS_REMOVE:  // case : 6
         //     f->R.rax = remove (f->R.rdi);
         //     break;
-        // case SYS_OPEN:  // case : 7
-        //     f->R.rax = open (f->R.rdi);
-        //     break;
+        case SYS_OPEN:  // case : 7
+            f->R.rax = open(f->R.rdi);
+            break;
         // case SYS_FILESIZE:  // case : 8
         //     f->R.rax = filesize (f->R.rdi);
         //     break;
@@ -131,67 +133,127 @@ void exit(int status) {  // Case : 1
 }
 
 // tid_t fork(const char *thread_name) {  // Case : 2
-//     return -1;
+//     exit(-1);
 // }
 
-void exec(const char *cmd_line) {  // Case : 3
-    // cmd_line에 주어진 이름을 가진 실행파일로 현재 프로세스 변경하고 주어진 인자 전달
-    //  반환값 :
-    //  성공: 반환 안 됨
-    //  실패: 프로세스 종료 및 종료 상태 -1 반환
-
+void exec(const char *cmd_line) {
+    // 1. 유저가 제공한 포인터가 유효한지 1차적으로 확인
     if (!check_address((void *)cmd_line)) {
         exit(-1);
     }
-    // ====== 주소 검사 부분 =======
-    const char *p = cmd_line;
 
-    while (true) {
-        if (!check_address((void *)p)) {
-            exit(-1);
-        }
-        if (*p == '\0') {
-            break;
-        }
-        p++;
-    }
-
-    char *cmd_line_copy;  // process_exec()에서 파싱해야하는데, cmd_line은 const => 복사본 만들기
-    cmd_line_copy = palloc_get_page(0);  // 단일 페이지 할당
-
-    printf("%p\n", cmd_line_copy);
+    // 2. 커널 공간에 cmd_line의 복사본을 만들기 위해 페이지 할당
+    char *cmd_line_copy = palloc_get_page(0);
     if (cmd_line_copy == NULL) {
         exit(-1);
     }
-    printf("MY NEW KERNEL IS DEFINITELY RUNNING!!!!");
-    strlcpy(cmd_line_copy, cmd_line, PGSIZE);  // cmd_line copy
 
-    // ===== 현재 실행 프로세스 내용 파괴 & 덮어쓰기 =====
-    if (process_exec(cmd_line_copy) == -1) {
-        exit(-1);  // 실패시 -1 로 종료
+    // 3. strlcpy를 사용하는 대신, 한 바이트씩 주소를 확인하며 안전하게 복사
+    const char *user_p = cmd_line;
+    char *kernel_p = cmd_line_copy;
+
+    while (true) {
+        // 읽으려는 유저 주소가 유효한지 매번 확인
+        if (!check_address((void *)user_p)) {
+            palloc_free_page(cmd_line_copy);
+            exit(-1);
+        }
+
+        // 데이터 복사
+        *kernel_p = *user_p;
+
+        // 문자열의 끝이면 종료
+        if (*user_p == '\0') {
+            break;
+        }
+
+        user_p++;
+        kernel_p++;
+
+        // 페이지 크기를 넘어서는 복사를 방지
+        if ((size_t)(kernel_p - cmd_line_copy) >= PGSIZE) {
+            palloc_free_page(cmd_line_copy);
+            exit(-1);
+        }
     }
 
-    //도달불가
+    // 4. 안전하게 복사된 커널 포인터(cmd_line_copy)를 process_exec에 전달
+    if (process_exec(cmd_line_copy) == -1) {
+        // process_exec은 성공하면 돌아오지 않으므로, 실패 시에만 종료
+        exit(-1);
+    }
 }
 
 // int wait(tid_t pid) {  // Case : 4
 //     return -1;
 // }
 
-// bool create(const char *file, unsigned initial_size) {  // Case : 5
-//     if (check_address(file)) {
-//         return -1;
-//     }
-//     return filesys_create(file,initial_size);
-// }
+bool create(const char *file, unsigned initial_size) {  // Case : 5
+    if (!check_address(file)) {
+        exit(-1);
+    }
+    return filesys_create(file, initial_size);
+}
 
 // bool remove(const char *file) {  // Case : 6
 //     return -1;
 // }
 
-// int open(const char *file) {  // Case : 7
-//     return -1;
-// }
+#define FDT_MAX_SIZE 128
+int open(const char *file_name) {  // Case : 7
+
+    if (!check_address(file_name)) {
+        exit(-1);  //유효하지 않은 파일이면 exit
+    }
+
+    // 파일 이름을 커널 메모리로 안전하게 복사
+    char *file_name_copy = palloc_get_page(0);
+    if (file_name_copy == NULL) {
+        return -1;  // 커널 메모리 부족
+    }
+
+    //복사
+    strlcpy(file_name_copy, file_name, PGSIZE);
+
+    // 파일 열기
+    struct file *file_ptr = filesys_open(file_name_copy);
+    palloc_free_page(file_name_copy);
+
+    if (file_ptr == NULL) {
+        return -1;  // 정상적인 실패상황
+    }
+
+    // 비어있는 FD 테이블 번호 찾기
+    struct thread *cur = thread_current();  //현재 쓰레드 ptr
+    int fd = -1;
+
+    // fd 테이블이 없으면 새로 할당
+    if (cur->fdt == NULL) {
+        cur->fdt = palloc_get_page(PAL_ZERO);  // PAL_ZERO로 초기화
+
+        //예외처리
+        if (cur->fdt == NULL) {
+            file_close(file_ptr);
+            return -1;
+        }
+    }
+
+    // FD 테이블의 최대번호는 몇으로 해야할까?
+    for (int i = 2; i < FDT_MAX_SIZE; i++) {
+        if ((cur->fdt)[i] == NULL)  // fd 인덱스가 비어있다면
+        {
+            cur->fdt[i] = file_ptr;  // fd와 파일 연결
+            fd = i;                  // 찾은 fd저장
+            break;
+        }
+    }
+
+    if (fd == -1) {
+        file_close(file_ptr);
+    }
+
+    return fd;  // 목표한 fd 반환
+}
 
 // int filesize(int fd) {  // Case : 8
 //     return -1;

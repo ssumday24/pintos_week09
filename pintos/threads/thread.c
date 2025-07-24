@@ -422,6 +422,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->wait_on_lock = NULL;
     t->wake_time = -1;
     t->magic = THREAD_MAGIC;
+    t->fdt = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
