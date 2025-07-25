@@ -16,7 +16,7 @@
 #include "filesys/filesys.h"
 #include "threads/palloc.h"
 #include "threads/synch.h"
-
+// 파일 디스크립터 최대크기 선언
 #define FDT_MAX_SIZE 128
 /* 함수 선언 추가 07.23 */
 static bool check_address(void *addr);
@@ -339,6 +339,11 @@ int write(int fd, const void *buffer, unsigned size) {  // Case : 10
     // 1. 버퍼 주소의 유효성 검사
     if (!check_address(buffer)) {
         exit(-1);  // 유효하지 않으면 exit
+    }
+
+    // write-bad-fd.c : fd 범위 벗어나는지 체크
+    if (fd < 0 || fd >= FDT_MAX_SIZE) {
+        exit(-1);
     }
 
     int bytes_written = 0;
