@@ -25,7 +25,7 @@ void input_putc(uint8_t key) {
 
 /* Retrieves a key from the input buffer.
    If the buffer is empty, waits for a key to be pressed. */
-uint8_t input_getc(void) {
+uint8_t input_getc(void) {  // input_getc : 키보드로부터 문자 하나(key)를 입력받아 반환
     enum intr_level old_level;
     uint8_t key;
 

@@ -111,6 +111,7 @@ void check_file_handle(int fd, const char *file_name, const void *buf_, size_t s
         if (block_size > sizeof block)
             block_size = sizeof block;
 
+        // 여기서 read() 는 사용자 영역에서의 호출
         ret_val = read(fd, block, block_size);
         if (ret_val != block_size)
             fail("read of %zu bytes at offset %zu in \"%s\" returned %zu", block_size, ofs,
