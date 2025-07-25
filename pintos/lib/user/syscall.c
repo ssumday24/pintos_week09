@@ -90,7 +90,7 @@ int open(const char *file) {
 int filesize(int fd) {
     return syscall1(SYS_FILESIZE, fd);
 }
-
+// 사용자 측 시스템콜
 int read(int fd, void *buffer, unsigned size) {
     return syscall3(SYS_READ, fd, buffer, size);
 }

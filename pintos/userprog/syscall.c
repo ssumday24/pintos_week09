@@ -16,7 +16,8 @@
 #include "filesys/filesys.h"
 #include "threads/palloc.h"
 #include "threads/synch.h"
-
+// 파일 디스크립터 최대크기 선언
+#define FDT_MAX_SIZE 128
 /* 함수 선언 추가 07.23 */
 static bool check_address(void *addr);
 
@@ -54,6 +55,8 @@ int wait(tid_t pid);
 int write(int fd, const void *buffer, unsigned size);
 bool create(const char *file, unsigned initial_size);
 int open(const char *file_name);
+int filesize(int fd);
+int read(int fd, void *buffer, unsigned size);
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 /* ======================================*/
@@ -89,9 +92,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         case SYS_OPEN:  // case : 7
             f->R.rax = open(f->R.rdi);
             break;
-        // case SYS_FILESIZE:  // case : 8
-        //     f->R.rax = filesize (f->R.rdi);
-        //     break;
+        case SYS_FILESIZE:  // case : 8
+            f->R.rax = filesize(f->R.rdi);
+            break;
         case SYS_READ:  // case : 9
             f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
             break;
@@ -199,7 +202,6 @@ bool create(const char *file, unsigned initial_size) {  // Case : 5
 //     return -1;
 // }
 
-#define FDT_MAX_SIZE 128
 int open(const char *file_name) {  // Case : 7
 
     if (!check_address(file_name)) {
@@ -255,19 +257,93 @@ int open(const char *file_name) {  // Case : 7
     return fd;  // 목표한 fd 반환
 }
 
-// int filesize(int fd) {  // Case : 8
-//     return -1;
-// }
+int filesize(int fd) {  // Case : 8 -> read()에서 호출
+    int size = 0;
+
+    struct thread *cur_thread = thread_current();
+
+    struct file *cur_file = cur_thread->fdt[fd];
+
+    // 파일이 없을때
+    if (cur_file == NULL) {
+        return -1;
+    }
+
+    // file.c
+    size = file_length(cur_file);
+
+    return size;
+}
 
 int read(int fd, void *buffer, unsigned size) {  // Case : 9
+    // 목표 : fd로 파일을 읽어와서, 버퍼에 size 바이트 만큼 읽어오기
 
-    return -1;
+    // KERN_BASE : 0x8004000000 부터 시작
+    // read-bad-ptr.c 테스트에서 0xc0100000 주소접근 => 커널영역 접근 제한 필요
+    // 헬퍼함수 안에서 is_kernel_vaddr 로 검증
+    if (!check_address(buffer) || !check_address(buffer + size - 1)) {
+        exit(-1);
+    }
+
+    // read-bad-fd.c : fd 범위 벗어나는지 체크
+    if (fd < 0 || fd >= FDT_MAX_SIZE) {
+        exit(-1);
+    }
+
+    struct thread *cur_thread = thread_current();  // 현재 쓰레드
+    int bytes_read = 0;                            // 반환값에 쓸, 읽어온 바이트 수
+
+    // fd = 0 : 표준입력 처리 -> 한글자씩 읽어오기
+    if (fd == 0) {
+        for (int i = 0; i < size; i++) {
+            // input_getc : 키보드로부터 문자 하나를 입력받아 반환
+            ((char *)buffer)[i] = input_getc();
+        }
+        bytes_read = size;
+    }
+
+    // fd == 1 : 표준 출력 -> read 에선 X
+    else if (fd == 1) {
+        return -1;
+    }
+
+    else {  // fd >= 2 : 파일 읽어오기
+
+        // 1. fd 유효성 검사
+        if (fd < 0 || fd >= FDT_MAX_SIZE) {
+            return -1;
+        }
+
+        // 현재 파일 ptr
+        struct file *cur_file = cur_thread->fdt[fd];
+
+        // 파일이 없을 때 예외처리
+        if (cur_file == NULL) {
+            return -1;
+        }
+
+        // 동시접근 막기위한 락 획득
+        // lock_acquire(&);
+
+        // file.c 의 file_read 사용
+        bytes_read = file_read(cur_file, buffer, size);
+
+        // 락 해제
+        // lock_release(&);
+    }
+
+    return bytes_read;
 }
 
 int write(int fd, const void *buffer, unsigned size) {  // Case : 10
     // 1. 버퍼 주소의 유효성 검사
     if (!check_address(buffer)) {
         exit(-1);  // 유효하지 않으면 exit
+    }
+
+    // write-bad-fd.c : fd 범위 벗어나는지 체크
+    if (fd < 0 || fd >= FDT_MAX_SIZE) {
+        exit(-1);
     }
 
     int bytes_written = 0;
