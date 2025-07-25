@@ -5,24 +5,39 @@
 
 #include "intrinsic.h"
 #include "threads/flags.h"
-#include "threads/init.h" /* pintos/include/threads/init.h*/
+#include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/loader.h"
 #include "threads/thread.h"
 #include "userprog/gdt.h"
 
-/* 헤더 파일 추가 07.22 */
+/* ===== 헤더 파일 추가 07.22 =====*/
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/palloc.h"
 #include "threads/synch.h"
-// 파일 디스크립터 최대크기 선언
-#define FDT_MAX_SIZE 128
-/* 함수 선언 추가 07.23 */
-static bool check_address(void *addr);
 
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define FDT_MAX_SIZE 128
+/* ===== 함수 선언 추가 07.23 ===== */
+static bool check_address(void *addr);
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
+
+/* ======= syscall 함수 선언 ========*/
+void halt(void);
+void exit(int status);
+void exec(const char *cmd_line);
+int wait(tid_t pid);
+int write(int fd, const void *buffer, unsigned size);
+bool create(const char *file, unsigned initial_size);
+bool remove(const char *file);
+int open(const char *file_name);
+int filesize(int fd);
+int read(int fd, void *buffer, unsigned size);
+
+/* ======================================*/
 
 /* System call.
  *
@@ -47,21 +62,7 @@ void syscall_init(void) {
     write_msr(MSR_SYSCALL_MASK, FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
-/* ======= 필요한 함수 선언 ==============*/
-void halt(void);
-void exit(int status);
-void exec(const char *cmd_line);
-int wait(tid_t pid);
-int write(int fd, const void *buffer, unsigned size);
-bool create(const char *file, unsigned initial_size);
-int open(const char *file_name);
-int filesize(int fd);
-int read(int fd, void *buffer, unsigned size);
-#define STDIN_FILENO 0
-#define STDOUT_FILENO 1
-/* ======================================*/
-
-/* 메인 시스템콜 인터페이스  => 커널공간  */
+/* ====== 메인 시스템콜 인터페이스  => 커널공간 ===== */
 void syscall_handler(struct intr_frame *f UNUSED) {
     // TODO: Your implementation goes here.
     // printf ("system call!\n");  //이부분 Test때는 주석처리
@@ -86,9 +87,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         case SYS_CREATE:  // case : 5
             f->R.rax = create(f->R.rdi, f->R.rsi);
             break;
-        // case SYS_REMOVE:  // case : 6
-        //     f->R.rax = remove (f->R.rdi);
-        //     break;
+        case SYS_REMOVE:  // case : 6
+            f->R.rax = remove(f->R.rdi);
+            break;
         case SYS_OPEN:  // case : 7
             f->R.rax = open(f->R.rdi);
             break;
@@ -195,12 +196,17 @@ bool create(const char *file, unsigned initial_size) {  // Case : 5
     if (!check_address(file)) {
         exit(-1);
     }
+    // filesys.c 에 정의된 함수 사용
     return filesys_create(file, initial_size);
 }
 
-// bool remove(const char *file) {  // Case : 6
-//     return -1;
-// }
+bool remove(const char *file) {  // Case : 6 -> 일단 간단한 버전
+    if (!check_address(file)) {
+        exit(-1);
+    }
+    // filesys.c 에 정의된 함수 사용
+    return filesys_remove(file);
+}
 
 int open(const char *file_name) {  // Case : 7
 
