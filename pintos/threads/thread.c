@@ -422,7 +422,12 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->wait_on_lock = NULL;
     t->wake_time = -1;
     t->magic = THREAD_MAGIC;
+
+    // FD 테이블 초기화
     t->fdt = NULL;
+
+    // ===== 세마포어 값 초기화 =====
+    t->is_waited = false;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
