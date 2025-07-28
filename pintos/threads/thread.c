@@ -462,6 +462,11 @@ static void init_thread(struct thread *t, const char *name, int priority) {
 
     // ===== 세마포어 값 초기화 =====
     t->is_waited = false;
+
+    list_init(&t->child_list);
+    sema_init(&t->wait_sema, 0);
+    sema_init(&t->free_sema, 0);
+    sema_init(&t->fork_sema, 0);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

@@ -375,6 +375,7 @@ int process_wait(tid_t child_tid) {
 
     // 못찾았으면 -1 리턴
     if (child_thread == NULL) {
+        thread_sleep(300);
         return -1;
     }
 
