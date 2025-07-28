@@ -35,7 +35,7 @@ void exception_init(void) {
        e.g. via the INT, INT3, INTO, and BOUND instructions.  Thus,
        we set DPL==3, meaning that user programs are allowed to
        invoke them via these instructions. */
-    intr_register_int(3, 3, INTR_ON, kill, "#BP Breakpoint Exception");
+    intr_register_int(3, 3, INTR_ON, kill, "#BP 74- Exception");
     intr_register_int(4, 3, INTR_ON, kill, "#OF Overflow Exception");
     intr_register_int(5, 3, INTR_ON, kill, "#BR BOUND Range Exceeded Exception");
 
