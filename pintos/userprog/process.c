@@ -333,9 +333,6 @@ int process_exec(void *f_name) {
     palloc_free_page(buffer);
     palloc_free_page(f_name);
 
-    // 디버깅용 -> 채점시 주석 처리
-     hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
-
     /* Start switched process. */
     do_iret(&_if);
     NOT_REACHED();
@@ -375,7 +372,6 @@ int process_wait(tid_t child_tid) {
 
     // 못찾았으면 -1 리턴
     if (child_thread == NULL) {
-        thread_sleep(300);
         return -1;
     }
 
@@ -408,6 +404,14 @@ void process_exit(void) {
      * TODO: Implement process termination message (see
      * TODO: project2/process_termination.html).
      * TODO: We recommend you to implement process resource cleanup here. */
+
+    /* 자식 프로세스가 종료될 때 부모에게 알리기 */
+    if (curr->parent != NULL) {
+        /* 부모가 wait 중이라면 깨우기 */
+        sema_up(&curr->wait_sema);
+        /* 부모가 자식 정리를 완료할 때까지 대기 */
+        sema_down(&curr->exit_sema);
+    }
 
     process_cleanup();
 }

@@ -227,7 +227,8 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
     list_init(&t->child_list);
 
     /* 부모-자식 관계 설정 */
-    if (curr->tid != TID_ERROR && curr->tid != 1) {  // 커널 스레드가 아닌 경우
+    // if (curr->tid != TID_ERROR && curr->tid != 1) {  // 커널 스레드가 아닌 경우
+    if (curr->tid != TID_ERROR) {  // init 프로세스도 자식을 가질 수 있도록 수정
         t->parent = curr;
         list_push_back(&curr->child_list, &t->child_elem);
     } else {
