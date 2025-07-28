@@ -124,7 +124,7 @@ struct thread {
     struct semaphore exit_sema;  // exit 동기화용
     struct semaphore fork_sema;  // fork 동기화용
     struct thread *parent;       // 부모 스레드 포인터
-    struct semaphore free_sema;  // free 동기화용
+
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
