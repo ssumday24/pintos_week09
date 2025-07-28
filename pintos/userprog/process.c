@@ -334,7 +334,7 @@ int process_exec(void *f_name) {
     palloc_free_page(f_name);
 
     // 디버깅용 -> 채점시 주석 처리
-    // hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+     hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
     /* Start switched process. */
     do_iret(&_if);
@@ -394,7 +394,6 @@ int process_wait(tid_t child_tid) {
     // 자식 리스트에서 제거
     list_remove(&child_thread->child_elem);
 
-    // 자식 프로세스 -> 부모를 깨움
     // 자식이 exit() 호출 -> 부모를 깨움
     sema_up(&child_thread->exit_sema);
 
