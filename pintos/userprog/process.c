@@ -355,45 +355,54 @@ int process_wait(tid_t child_tid) {
     return -1;
 
     /*
-     문제점 : OS가, 프로세스가 끝나는것을 기다리지 않고 먼저 종료해버린다.
+     문제점 : OS가, 프로세스가 끝나는것을 기다리지 않고 먼저 종료됨
 
-     목표 : 자식 프로세스가 끝날 때까지 부모 프로세스를 잠시 대기(block) 시켜놓고,
+     목표 : 자식 프로세스가 끝날 때까지 부모 프로세스를 잠시 대기(block) 시켜놓고
      자식이 종료되면 그 상태 값을 받아 오기
+
+     부모가 fork(), wait() -> 자식이 exit() 할때까지 대기
     */
-    // struct thread *cur = thread_current ();
-    // strcut thread *child = NULL;
+    struct thread *cur = thread_current();
+    struct thread *child_thread = NULL;
 
-    // // 1. 현재 프로세스의 child_list 중, child_tid 를 가진 자식 쓰레드 찾기
-    // struct list_elem *e;
-    // for (e = list_begin (&cur->child_list); e != list_end (&cur->child_list); e = list_next
-    // (e))
-    // {
-    //     // list_entry 통해서 쓰레드 구조체의 주소 얻기!
-    //     struct thread *t = list_entry (e, struct thread, child_elem);
-    //     if (t->tid == child_tid) {
-    //         child = t;
-    //         break
-    //     }
-    // }
+    // 1. 현재 프로세스의 child_list 중, child_tid 를 가진 자식 쓰레드 찾기
+    struct list_elem *e;
+    for (e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e)) {
+        // list_entry 통해서 쓰레드 구조체의 주소 얻기
+        struct thread *t = list_entry(e, struct thread, child_elem);
+        if (t->tid == child_tid) {
+            child_thread = t;
+            break;
+        }
+    }
 
-    // // 2. 못찾았으면 -1 리턴
-    // if (child == NULL) {
-    //     return -1;
-    // }
+    // 못찾았으면 -1 리턴
+    if (child_thread == NULL) {
+        return -1;
+    }
 
-    // //  3. 자식 프로세스가 종료될 때까지 대기
-    // //    자식은 종료될 때 이 세마포어를 up 시켜 부모를 깨움
-    // sema_down (&child->wait_sema);
+    //  wait-twice.c TC 통과 위해서, 이미 wait이 호출된 자식인지 확인
+    if (child_thread->is_waited) {
+        return -1;
+    }
+    // wait 호출여부 표시
+    child_thread->is_waited = true;
 
-    // // 4. 자식의 종료 상태를 가져오고, 자식 리스트에서 제거
-    // int exit_status = child->exit_status;
-    // list_remove (&child->child_elem);
+    // 자식 프로세스가 종료될 때까지 부모는 대기
+    sema_down(&child_thread->wait_sema);
 
-    // //  5. 자식 프로세스가 이제 완전히 종료되어도 안전하다는 신호를 보냄
-    // //   이 신호를 받은 자식 프로세스는 자신의 스레드 구조체를 해제하고 사라짐
-    // sema_up (&child->exit_sema);
+    // 자식의 종료 상태 가져오기
+    int exit_status = child_thread->exit_status;
 
-    // return exit_status;
+    // 자식 리스트에서 제거
+    list_remove(&child_thread->child_elem);
+
+    // 자식 프로세스 -> 부모를 깨움
+    // 자식이 exit() 호출 -> 부모를 깨움
+    sema_up(&child_thread->exit_sema);
+
+    return exit_status;
+
 }
 
 /* Exit the process. This function is called by thread_exit (). */

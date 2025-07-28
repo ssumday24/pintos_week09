@@ -31,6 +31,7 @@ void syscall_handler(struct intr_frame *);
 /* ======= syscall 함수 선언 ========*/
 void halt(void);
 void exit(int status);
+tid_t fork(const char *thread_name);
 void exec(const char *cmd_line);
 int wait(tid_t pid);
 int write(int fd, const void *buffer, unsigned size);
@@ -39,7 +40,7 @@ bool remove(const char *file);
 int open(const char *file_name);
 int filesize(int fd);
 int read(int fd, void *buffer, unsigned size);
-
+void close(int fd);
 /* ======================================*/
 
 /* System call.
@@ -84,9 +85,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         case SYS_EXEC:  // case : 3
             exec(f->R.rdi);
             break;
-        // case SYS_WAIT:  // case : 4
-        //     f->R.rax = wait (f->R.rdi);
-        //     break;
+        case SYS_WAIT:  // case : 4
+            f->R.rax = wait(f->R.rdi);
+            break;
         case SYS_CREATE:  // case : 5
             f->R.rax = create(f->R.rdi, f->R.rsi);
             break;
@@ -195,9 +196,11 @@ void exec(const char *cmd_line) {
     }
 }
 
-// int wait(tid_t pid) {  // Case : 4
-//     return -1;
-// }
+int wait(tid_t pid) {  // Case : 4
+
+    // 자식의 종료 status 받아오기
+    return process_wait(pid);
+}
 
 bool create(const char *file, unsigned initial_size) {  // Case : 5
     if (!check_address(file)) {
@@ -349,9 +352,9 @@ int read(int fd, void *buffer, unsigned size) {  // Case : 9
 }
 
 int write(int fd, const void *buffer, unsigned size) {  // Case : 10
-    // 1. 버퍼 주소의 유효성 검사
+    // 버퍼 주소 유효성 검사
     if (!check_address(buffer)) {
-        exit(-1);  // 유효하지 않으면 exit
+        exit(-1);
     }
 
     // write-bad-fd.c : fd 범위 벗어나는지 체크
@@ -403,7 +406,7 @@ void close(int fd) {  // Case : 13
         exit(-1);
     }
 
-    // 2. 파일 객체 찾기
+    // 2. 파일찾기
     struct thread *cur = thread_current();
     if (cur->fdt[fd] == NULL) {
         exit(-1);  // fd 테이블에 없으면 에러
