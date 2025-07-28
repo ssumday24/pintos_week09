@@ -19,8 +19,11 @@
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
-#define FDT_MAX_SIZE 128
+
 /* ===== 함수 선언 추가 07.23 ===== */
+
+typedef int pid_t;
+
 static bool check_address(void *addr);
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -75,9 +78,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         case SYS_EXIT:  // case : 1
             exit(f->R.rdi);
             break;
-        // case SYS_FORK:  // case : 2
-        //     f->R.rax = fork_syscall (f->R.rdi, f);
-        //     break;
+        case SYS_FORK:  // case : 2
+            f->R.rax = fork(f->R.rdi, f);
+            break;
         case SYS_EXEC:  // case : 3
             exec(f->R.rdi);
             break;
@@ -136,9 +139,13 @@ void exit(int status) {  // Case : 1
     thread_exit();
 }
 
-// tid_t fork(const char *thread_name) {  // Case : 2
-//     exit(-1);
-// }
+pid_t fork(const char *thread_name) {
+    if (!check_address(thread_name)) {
+        exit(-1);
+    }
+    struct intr_frame *if_ = pg_round_up(&thread_name) - sizeof(struct intr_frame);
+    return process_fork(thread_name, if_);
+}
 
 void exec(const char *cmd_line) {
     // 1. 유저가 제공한 포인터가 유효한지 1차적으로 확인
@@ -211,7 +218,7 @@ bool remove(const char *file) {  // Case : 6 -> 일단 간단한 버전
 int open(const char *file_name) {  // Case : 7
 
     if (!check_address(file_name)) {
-        exit(-1);  //유효하지 않은 파일이면 exit
+        exit(-1);  // 유효하지 않은 파일이면 exit
     }
 
     // 파일 이름을 커널 메모리로 안전하게 복사
@@ -220,7 +227,7 @@ int open(const char *file_name) {  // Case : 7
         return -1;  // 커널 메모리 부족
     }
 
-    //복사
+    // 복사
     strlcpy(file_name_copy, file_name, PGSIZE);
 
     // 파일 열기
@@ -232,14 +239,14 @@ int open(const char *file_name) {  // Case : 7
     }
 
     // 비어있는 FD 테이블 번호 찾기
-    struct thread *cur = thread_current();  //현재 쓰레드 ptr
+    struct thread *cur = thread_current();  // 현재 쓰레드 ptr
     int fd = -1;
 
     // fd 테이블이 없으면 새로 할당
     if (cur->fdt == NULL) {
         cur->fdt = palloc_get_page(PAL_ZERO);  // PAL_ZERO로 초기화
 
-        //예외처리
+        // 예외처리
         if (cur->fdt == NULL) {
             file_close(file_ptr);
             return -1;
@@ -369,7 +376,7 @@ int write(int fd, const void *buffer, unsigned size) {  // Case : 10
 
     // 4. 그 외의 fd : fd에 해당하는 파일에 쓰기
     else {
-        struct thread *cur = thread_current();  //현재 쓰레드
+        struct thread *cur = thread_current();  // 현재 쓰레드
 
         // fd가 유효한 범위에 있는지 확인
         if (fd < 2 || fd >= 128) {
