@@ -12,6 +12,7 @@
 static long long page_fault_cnt;
 
 static void kill(struct intr_frame *);
+
 static void page_fault(struct intr_frame *);
 
 /* Registers handlers for interrupts that can be caused by user
@@ -123,12 +124,14 @@ static void page_fault(struct intr_frame *f) {
        data.  It is not necessarily the address of the instruction
        that caused the fault (that's f->rip). */
 
-    fault_addr = (void *)rcr2();
+    fault_addr = (void *) rcr2();
 
     /* Turn interrupts back on (they were only off so that we could
        be assured of reading CR2 before it changed). */
     intr_enable();
-
+    if ((f->error_code & PF_U) != 0) {
+        exit(-1);
+    }
     /* Determine cause. */
     not_present = (f->error_code & PF_P) == 0;
     write = (f->error_code & PF_W) != 0;
