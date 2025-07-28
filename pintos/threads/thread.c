@@ -204,6 +204,40 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
     t->tf.cs = SEL_KCSEG;
     t->tf.eflags = FLAG_IF;
 
+    t->fdt = palloc_get_page(PAL_ZERO);
+    if (t->fdt == NULL) {
+        palloc_free_page(t);
+        return TID_ERROR;
+    }
+    t->fd_idx = 2;
+    t->fdt[0] = NULL;
+    t->fdt[1] = NULL;
+
+    /* 부모-자식 관계 설정 및 세마포어 초기화 */
+
+    struct thread *curr = thread_current();
+
+    /* 세마포어 초기화 */
+    sema_init(&t->fork_sema, 0);
+    sema_init(&t->wait_sema, 0);
+    sema_init(&t->free_sema, 0);
+
+    /* 리스트 초기화 */
+    list_init(&t->child_list);
+
+    /* 부모-자식 관계 설정 */
+    if (curr->tid != TID_ERROR && curr->tid != 1) {  // 커널 스레드가 아닌 경우
+        t->parent = curr;
+        list_push_back(&curr->child_list, &t->child_elem);
+    } else {
+        t->parent = NULL;
+    }
+
+    /* 초기값 설정 */
+    t->parent_if = NULL;
+    t->running_file = NULL;
+    t->exit_status = 0;
+
     /* Add to run queue. */
     thread_unblock(t);
 
@@ -212,7 +246,6 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 
     return tid;
 }
-
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
 
@@ -243,7 +276,7 @@ void thread_unblock(struct thread *t) {
 
     ASSERT(is_thread(t));  // 올바른 스레드인지
 
-    old_level = intr_disable();  // 인터럽트 끄기 -> 현재 동작이 원자적으로 작동하도록
+    old_level = intr_disable();           // 인터럽트 끄기 -> 현재 동작이 원자적으로 작동하도록
     ASSERT(t->status == THREAD_BLOCKED);  // 현재 스레드가 블록상태여야함.
 
     // list_push_back(&ready_list, &t->elem);  // 현재 스레드를 ready thread list에 넣기
@@ -307,7 +340,7 @@ void thread_yield(void) {
     ASSERT(!intr_context());
 
     old_level = intr_disable();  // interrupt를 비활성화 시키고 이전 interrupt 상태를 반환
-    if (curr != idle_thread)  // 현재 스레드가 유휴 스레드가 아니면,
+    if (curr != idle_thread)     // 현재 스레드가 유휴 스레드가 아니면,
 
         // list_push_back(&ready_list, &curr->elem);  // 현재 스레드를 ready list의 맨 마지막에 넣음
         list_insert_ordered(&ready_list, &curr->elem, higher_priority, NULL);
