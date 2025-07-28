@@ -405,6 +405,19 @@ void process_exit(void) {
      * TODO: project2/process_termination.html).
      * TODO: We recommend you to implement process resource cleanup here. */
 
+    // 모든 FDT 닫기
+    for (int i = 2; i < FDT_MAX_SIZE; i++) {
+        if (curr->fdt[i] != NULL) {
+            file_close(curr->fdt[i]);
+        }
+    }
+    palloc_free_page(curr->fdt);  // fdt 메모리 해제
+
+    if (curr->running_file != NULL) {
+        // file_allow_write(curr->running_file);
+        file_close(curr->running_file);  // 실행 중인 파일 닫기
+    }
+
     /* 자식 프로세스가 종료될 때 부모에게 알리기 */
     if (curr->parent != NULL) {
         /* 부모가 wait 중이라면 깨우기 */
@@ -413,7 +426,7 @@ void process_exit(void) {
         sema_down(&curr->exit_sema);
     }
 
-    process_cleanup();
+    // process_cleanup();
 }
 
 /* Free the current process's resources. */
@@ -539,6 +552,16 @@ static bool load(const char *file_name, struct intr_frame *if_) {
         goto done;
     }
 
+    /* ===== 수정 부분 시작  07.29 ===== */
+
+    // 쓰기 권한 금지
+    file_deny_write(file);
+
+    // 현재 스레드에 실행 파일 정보 저장
+    t->running_file = file;
+
+    /* ===== 수정 부분 끝  ===== */
+
     /* Read and verify executable header. */
     if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr ||
         memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 ||
@@ -613,7 +636,6 @@ static bool load(const char *file_name, struct intr_frame *if_) {
 
 done:
     /* We arrive here whether the load is successful or not. */
-    file_close(file);
     return success;
 }
 
