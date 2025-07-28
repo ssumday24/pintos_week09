@@ -28,6 +28,7 @@ void syscall_handler(struct intr_frame *);
 /* ======= syscall 함수 선언 ========*/
 void halt(void);
 void exit(int status);
+tid_t fork(const char *thread_name);
 void exec(const char *cmd_line);
 int wait(tid_t pid);
 int write(int fd, const void *buffer, unsigned size);
@@ -36,7 +37,7 @@ bool remove(const char *file);
 int open(const char *file_name);
 int filesize(int fd);
 int read(int fd, void *buffer, unsigned size);
-
+void close(int fd);
 /* ======================================*/
 
 /* System call.
