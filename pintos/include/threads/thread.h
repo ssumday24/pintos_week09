@@ -117,9 +117,8 @@ struct thread {
     struct intr_frame *parent_if;
     struct file *running_file;  // 현재 실행중인 파일
 
-
     struct semaphore wait_sema;  // wait 동기화
-    bool is_waited;                 //  wait 체크
+    bool is_waited;              //  wait 체크
 
     /* ----- fork용으로 추가 07.23 ---- */
     struct semaphore exit_sema;  // exit 동기화용

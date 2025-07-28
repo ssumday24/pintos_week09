@@ -221,6 +221,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
     sema_init(&t->fork_sema, 0);
     sema_init(&t->wait_sema, 0);
     sema_init(&t->free_sema, 0);
+    sema_init(&t->exit_sema, 0);
 
     /* 리스트 초기화 */
     list_init(&t->child_list);
@@ -461,6 +462,11 @@ static void init_thread(struct thread *t, const char *name, int priority) {
 
     // ===== 세마포어 값 초기화 =====
     t->is_waited = false;
+
+    list_init(&t->child_list);
+    sema_init(&t->wait_sema, 0);
+    sema_init(&t->free_sema, 0);
+    sema_init(&t->fork_sema, 0);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
