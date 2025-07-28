@@ -351,9 +351,6 @@ int process_exec(void *f_name) {
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
 int process_wait(tid_t child_tid) {
-    thread_sleep(300);
-    return -1;
-
     /*
      문제점 : OS가, 프로세스가 끝나는것을 기다리지 않고 먼저 종료됨
 
@@ -402,7 +399,6 @@ int process_wait(tid_t child_tid) {
     sema_up(&child_thread->exit_sema);
 
     return exit_status;
-
 }
 
 /* Exit the process. This function is called by thread_exit (). */
