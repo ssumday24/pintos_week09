@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <syscall-nr.h>
 
+#include "filesys/file.h"
 #include "intrinsic.h"
 #include "threads/flags.h"
 #include "threads/init.h"
@@ -106,12 +107,12 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         case SYS_WRITE:  // case : 10
             f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
             break;
-        // case SYS_SEEK:
-        //     seek (f->R.rdi, f->R.rsi);
-        //     break;
-        // case SYS_TELL:
-        //     f->R.rax = tell (f->R.rdi);
-        //     break;
+        case SYS_SEEK:
+            seek(f->R.rdi, f->R.rsi);
+            break;
+        case SYS_TELL:
+            f->R.rax = tell(f->R.rdi);
+            break;
         case SYS_CLOSE:  // case : 13
             close(f->R.rdi);
             break;
@@ -194,6 +195,26 @@ void exec(const char *cmd_line) {
         // process_exec은 성공하면 돌아오지 않으므로, 실패 시에만 종료
         exit(-1);
     }
+}
+void seek(int fd, unsigned position) {
+    struct thread *cur = thread_current();
+    if (cur->fdt[fd] == NULL) {
+        exit(-1);  // fd 테이블에 없으면 에러
+    }
+    struct file *seek_file = cur->fdt[fd];
+    if (seek_file <= 1) {
+        return;
+    }
+    file_seek(seek_file, position);
+}
+off_t tell(int fd) {
+    struct thread *cur = thread_current();
+    if (cur->fdt[fd] == NULL) {
+        exit(-1);  // fd 테이블에 없으면 에러
+    }
+    struct file *tell_file = cur->fdt[fd];
+
+    return file_tell(tell_file);
 }
 
 int wait(tid_t pid) {  // Case : 4
