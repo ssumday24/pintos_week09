@@ -426,7 +426,7 @@ void process_exit(void) {
         sema_down(&curr->exit_sema);
     }
 
-    // process_cleanup();
+     process_cleanup();
 }
 
 /* Free the current process's resources. */
