@@ -6,6 +6,8 @@
 #include <stdint.h>
 
 #include "threads/interrupt.h"
+#include "threads/synch.h"
+#define FDT_MAX_SIZE 128
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -21,7 +23,7 @@ enum thread_status {
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
-#define TID_ERROR ((tid_t)-1) /* Error value for tid_t. */
+#define TID_ERROR ((tid_t) - 1) /* Error value for tid_t. */
 
 /* Thread priorities. */
 #define PRI_MIN 0      /* Lowest priority. */
@@ -97,27 +99,33 @@ struct thread {
     struct list_elem donation_elem;
     struct lock *wait_on_lock;
 
-    /* Shared between thread.c and synch.c. */
-    struct list_elem elem; /* List element. */
     // elem 의 멤버 : struct list elem* prev,next => 쓰레드끼리 연결고리 역할
+    struct list_elem elem;
 
     /* ----- exit status 필드 추가 07.21----- */
     int exit_status;
 
     /* ----- 파일 디스크립터 테이블 필드 추가 07.21----- */
-    struct file **fdt;
+    struct file **fdt;  // 쓰레드끼리는 FD 테이블 공유
+    // 프로세스는 자기만의 FD 테이블을 하나씩 갖고 있음
 
+    int fd_idx;
     /* ----- process_wait 구현 위한 필드 추가 07.22 ---- */
+
     struct list child_list;       // 자식 프로세스 리스트
     struct list_elem child_elem;  // 부모와 자식 리스트에 연결하기 위한 요소
-
+    struct intr_frame *parent_if;
     struct file *running_file;  // 현재 실행중인 파일
 
+
+    struct semaphore wait_sema;  // wait 동기화
+    bool is_waited;                 //  wait 체크
+
     /* ----- fork용으로 추가 07.23 ---- */
-    struct semaphore wait_sema;  // wait 동기화용
+    struct semaphore exit_sema;  // exit 동기화용
     struct semaphore fork_sema;  // fork 동기화용
-    bool waited;                 //  wait 체크
     struct thread *parent;       // 부모 스레드 포인터
+    struct semaphore free_sema;  // free 동기화용
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
