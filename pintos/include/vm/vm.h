@@ -61,6 +61,7 @@ struct page {
 };
 
 /* The representation of "frame" */
+// kva : 커널 가상 메모리
 struct frame {
     void *kva;
     struct page *page;

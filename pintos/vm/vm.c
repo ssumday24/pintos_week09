@@ -20,7 +20,7 @@ void vm_init(void) {
 
 /* Get the type of the page. This function is useful if you want to know the
  * type of the page after it will be initialized.
- * This function is fully implemented now. */
+ * This function is fully implementesd now. */
 enum vm_type page_get_type(struct page *page) {
     int ty = VM_TYPE(page->operations->type);
     switch (ty) {
@@ -58,6 +58,7 @@ err:
 }
 
 /* Find VA from spt and return page. On error, return NULL. */
+// SPT 에서 VA 와 일치하는 페이지 반환
 struct page *spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
     struct page *page = NULL;
     /* TODO: Fill this function. */
@@ -114,14 +115,15 @@ static void vm_stack_growth(void *addr UNUSED) {}
 /* Handle the fault on write_protected page */
 static bool vm_handle_wp(struct page *page UNUSED) {}
 
-/* Return true on success */
+/* Return true on success. */ 
+// 페이지 폴트 핸들러
 bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool user UNUSED,
                          bool write UNUSED, bool not_present UNUSED) {
     struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
     struct page *page = NULL;
     /* TODO: Validate the fault */
     /* TODO: Your code goes here */
-
+ 
     return vm_do_claim_page(page);
 }
 
@@ -136,7 +138,7 @@ void vm_dealloc_page(struct page *page) {
 bool vm_claim_page(void *va UNUSED) {
     struct page *page = NULL;
     /* TODO: Fill this function */
-
+    // VA를  -> 페이지로 잘 바꿔주기
     return vm_do_claim_page(page);
 }
 
