@@ -59,7 +59,7 @@ err:
 }
 
 /* Find VA from spt and return page. On error, return NULL. */
-struct page *spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
+struct page *spt_find_page(struct supplemental_page_table *spt, void *va) {
     struct page *page = NULL;
     /* TODO: Fill this function. */
     // supplement page table에서 가상주소가 va인 struct page 찾기
@@ -72,7 +72,7 @@ struct page *spt_find_page(struct supplemental_page_table *spt UNUSED, void *va 
 }
 
 /* Insert PAGE into spt with validation. */
-bool spt_insert_page(struct supplemental_page_table *spt UNUSED, struct page *page UNUSED) {
+bool spt_insert_page(struct supplemental_page_table *spt, struct page *page) {
     int succ = false;
     /* TODO: Fill this function. */
     // supplement page table에 struct page(의 hash_elem) 삽입하기
@@ -165,7 +165,7 @@ static bool vm_do_claim_page(struct page *page) {
 }
 
 /* Initialize new supplemental page table */
-void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED) {
+void supplemental_page_table_init(struct supplemental_page_table *spt) {
     // supplemental page table에 사용할 hash table을 초기화
     hash_init(&(spt -> pages), page_hash, page_less, NULL);
 }
