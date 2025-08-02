@@ -4,6 +4,7 @@
 
 #include "threads/malloc.h"
 #include "vm/inspect.h"
+#include <hash.h>
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -61,7 +62,12 @@ err:
 struct page *spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
     struct page *page = NULL;
     /* TODO: Fill this function. */
-
+    // supplement page table에서 가상주소가 va인 struct page 찾기
+    struct page p;              // 검색용으로 만든 임시 페이지
+    struct hash_elem *e;        // hash_find의 검색결과 저장용
+    p.va = va;
+    e = hash_find(&(spt -> pages), &(p.hash_elem));
+    page = e != NULL ? hash_entry(e, struct page, hash_elem): NULL;
     return page;
 }
 
@@ -69,7 +75,12 @@ struct page *spt_find_page(struct supplemental_page_table *spt UNUSED, void *va 
 bool spt_insert_page(struct supplemental_page_table *spt UNUSED, struct page *page UNUSED) {
     int succ = false;
     /* TODO: Fill this function. */
+    // supplement page table에 struct page(의 hash_elem) 삽입하기
+    // hash_insert는 성공 시 NULL, 실패 시 (중복 키 존재) 해당 hash_elem의 주소를 반환
 
+    if (hash_insert(&(spt -> pages), &(page -> hash_elem)) == NULL){
+        succ = true;
+    }
     return succ;
 }
 
@@ -154,7 +165,10 @@ static bool vm_do_claim_page(struct page *page) {
 }
 
 /* Initialize new supplemental page table */
-void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED) {}
+void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED) {
+    // supplemental page table에 사용할 hash table을 초기화
+    hash_init(&(spt -> pages), page_hash, page_less, NULL);
+}
 
 /* Copy supplemental page table from src to dst */
 bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
