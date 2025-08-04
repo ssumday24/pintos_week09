@@ -6,7 +6,7 @@
 #include "vm/inspect.h"
 
 //loader_kern_base 매크로 변수를 사용하기 위한 헤더 파일
-#include "threads/loader.h"
+// #include "threads/loader.h"
 
 //pml4_set_page() 함수를 사용하기 위한 헤더 파일
 #include "threads/mmu.h"
@@ -124,7 +124,7 @@ static struct frame *vm_get_frame(void) {
     // 실제 물리 메모리 page 할당
     frame->page = NULL;
     // 물리 메모리 주소 -> 가상 주소로 변환
-    frame->kva = new_page + KERN_BASE;    
+    frame->kva = new_page;    
 
     ASSERT(frame != NULL);
     ASSERT(frame->page == NULL);    
@@ -188,7 +188,6 @@ static bool vm_do_claim_page(struct page *page) {
     page->frame = frame;
 
     // FIX: pml4_set_page 안에 vtop() 함수 안에서 아래 과정을 처리하고 있어서 주석처리함.
-    //void * kpage = frame->kva - KERN_BASE;  // 프레임의 실제 물리 메모리 주소가 나온다.
 
     /* is_writable() 함수를 사용하기 위해 pte 정보를 가져온다. pml4_get_page 함수 내에서 pte값 가져오는 방식을 참고함.*/
     uint64_t *pte = pml4e_walk(thread_current()->pml4, (uint64_t)page->va, 0);
