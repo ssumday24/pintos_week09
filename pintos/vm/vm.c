@@ -10,6 +10,11 @@
 
 //pml4_set_page() 함수를 사용하기 위한 헤더 파일
 #include "threads/mmu.h"
+/* ===== 함수 선언 부분 =====*/
+unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED);
+bool page_less(const struct hash_elem *a_, 
+                const struct hash_elem *b_, void *aux UNUSED);
+
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -26,7 +31,7 @@ void vm_init(void) {
 
 /* Get the type of the page. This function is useful if you want to know the
  * type of the page after it will be initialized.
- * This function is fully implemented now. */
+ * This function is fully implementesd now. */
 enum vm_type page_get_type(struct page *page) {
     int ty = VM_TYPE(page->operations->type);
     switch (ty) {
@@ -64,6 +69,7 @@ err:
 }
 
 /* Find VA from spt and return page. On error, return NULL. */
+// SPT 에서 VA 와 일치하는 페이지 반환
 struct page *spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
     struct page *page = NULL;
     /* TODO: Fill this function. */
@@ -139,14 +145,15 @@ static void vm_stack_growth(void *addr UNUSED) {}
 /* Handle the fault on write_protected page */
 static bool vm_handle_wp(struct page *page UNUSED) {}
 
-/* Return true on success */
+/* Return true on success. */ 
+// 페이지 폴트 핸들러
 bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool user UNUSED,
                          bool write UNUSED, bool not_present UNUSED) {
     struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
     struct page *page = NULL;
     /* TODO: Validate the fault */
     /* TODO: Your code goes here */
-
+ 
     return vm_do_claim_page(page);
 }
 
@@ -161,8 +168,7 @@ void vm_dealloc_page(struct page *page) {
 bool vm_claim_page(void *va UNUSED) {
     struct page *page = NULL;
 
-    /* TODO: Fill this function */
-    
+    /* TODO: Fill this function */    
     // spt는 구조체로 선언되어 있어서 &(주소 연산자)를 붙여줌.
     // EXPECT: 유저 영역의 va와 spt 정보를 넘겨주면 spt에 해당 주소에 대한 정보가 있으면 페이지를 가져올 것을 기대함.
     page = spt_find_page(&thread_current()->spt,va);
@@ -170,7 +176,6 @@ bool vm_claim_page(void *va UNUSED) {
     if(page == NULL){
         PANIC("failed to get page!\n");
     }
-    
     return vm_do_claim_page(page);
 }
 
@@ -209,4 +214,19 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED) {
     /* TODO: Destroy all the supplemental_page_table hold by thread and
      * TODO: writeback all the modified contents to the storage. */
+}
+
+/* ===== 해시 함수 추가 부분 08.04 ===== */
+unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED){
+    const struct page *p = hash_entry(p_,struct page, hash_elem);
+    return hash_bytes(&p->va,sizeof (p->va));
+}
+
+/* ===== 해시 함수 추가 부분 08.04 ===== */
+bool page_less(const struct hash_elem *a_, 
+                const struct hash_elem *b_, void *aux UNUSED){
+    const struct page *a =hash_entry(a_,struct page,hash_elem);
+    const struct page *b =hash_entry(b_,struct page, hash_elem);
+                
+    return a->va < b-> va;
 }
