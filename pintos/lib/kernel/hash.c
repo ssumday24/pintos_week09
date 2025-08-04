@@ -112,6 +112,7 @@ struct hash_elem *hash_replace(struct hash *h, struct hash_elem *new) {
 
 /* Finds and returns an element equal to E in hash table H, or a
    null pointer if no equal element exists in the table. */
+// 해시테이블로부터 원소 e 를 찾아서 리턴해줌   
 struct hash_elem *hash_find(struct hash *h, struct hash_elem *e) {
     return find_elem(h, find_bucket(h, e), e);
 }
