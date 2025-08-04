@@ -2,9 +2,14 @@
 
 #include "vm/vm.h"
 
+// #include "threads/malloc.h"
+// #include "vm/inspect.h"
+// #include <hash.h>
 #include "threads/malloc.h"
+#include "vm/vm.h"
 #include "vm/inspect.h"
-#include <hash.h>
+
+
 
 //loader_kern_base 매크로 변수를 사용하기 위한 헤더 파일
 // #include "threads/loader.h"
@@ -127,7 +132,7 @@ static struct frame *vm_evict_frame(void) {
 static struct frame *vm_get_frame(void) {
     struct frame *frame = NULL;
 
-    // 새로운 페이지 할당 
+    // 새로운 페이지 할당  -> palloc 은 kva 반환
     void * new_page = palloc_get_page(PAL_USER);
 
     if(new_page == NULL){
@@ -167,6 +172,9 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool us
     /* TODO: Validate the fault */
     /* TODO: Your code goes here */
  
+    // invalid -> 종료 / free   ||  valid -> vm_do_claim_page
+
+
     return vm_do_claim_page(page);
 }
 

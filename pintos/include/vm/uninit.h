@@ -1,6 +1,8 @@
 #ifndef VM_UNINIT_H
 #define VM_UNINIT_H
-#include "vm/vm.h"
+// #include "vm/vm.h"
+#include <stdbool.h>
+#include "vm/vm_type.h"
 
 struct page;
 enum vm_type;
