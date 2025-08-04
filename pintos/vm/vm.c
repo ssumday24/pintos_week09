@@ -5,6 +5,11 @@
 #include "threads/malloc.h"
 #include "vm/inspect.h"
 
+/* ===== 함수 선언 부분 =====*/
+unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED);
+bool page_less(const struct hash_elem *a_, 
+                const struct hash_elem *b_, void *aux UNUSED);
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void vm_init(void) {
@@ -166,4 +171,19 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED) {
     /* TODO: Destroy all the supplemental_page_table hold by thread and
      * TODO: writeback all the modified contents to the storage. */
+}
+
+/* ===== 해시 함수 추가 부분 08.04 ===== */
+unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED){
+    const struct page *p = hash_entry(p_,struct page, hash_elem);
+    return hash_bytes(&p->va,sizeof (p->va));
+}
+
+/* ===== 해시 함수 추가 부분 08.04 ===== */
+bool page_less(const struct hash_elem *a_, 
+                const struct hash_elem *b_, void *aux UNUSED){
+    const struct page *a =hash_entry(a_,struct page,hash_elem);
+    const struct page *b =hash_entry(b_,struct page, hash_elem);
+                
+    return a->va < b-> va;
 }
