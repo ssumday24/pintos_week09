@@ -189,12 +189,9 @@ static bool vm_do_claim_page(struct page *page) {
 
     // FIX: pml4_set_page 안에 vtop() 함수 안에서 아래 과정을 처리하고 있어서 주석처리함.
 
-    /* is_writable() 함수를 사용하기 위해 pte 정보를 가져온다. pml4_get_page 함수 내에서 pte값 가져오는 방식을 참고함.*/
-    uint64_t *pte = pml4e_walk(thread_current()->pml4, (uint64_t)page->va, 0);
-
     /* TODO: Insert page table entry to map page's VA to frame's PA. */
     // FIX : 처음에는 frame->page를 넘겨줬는데, 유저 영역의 VA 와 커널 영역의 실제 메모리 주소를 매핑하는 것이므로 page->va로 변경 
-    if(!pml4_set_page(thread_current()->pml4, page->va, frame->kva, is_writable(pte))){  // true, false를 반환하므로, 실패 시 에러 처리
+    if(!pml4_set_page(thread_current()->pml4, page->va, frame->kva, 1)){  // true, false를 반환하므로, 실패 시 에러 처리
         PANIC("Failed to Insert page table entry to map page's VA to frame's PA");
     }
 
