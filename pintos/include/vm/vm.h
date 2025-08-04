@@ -1,7 +1,7 @@
 #ifndef VM_VM_H
 #define VM_VM_H
 #include <stdbool.h>
-
+#include <hash.h>
 #include "threads/palloc.h"
 
 enum vm_type {
@@ -58,9 +58,15 @@ struct page {
         struct page_cache page_cache;
 #endif
     };
+
+    struct hash_elem hash_elem;
+
+
+
 };
 
 /* The representation of "frame" */
+// kva : 커널 가상 메모리
 struct frame {
     void *kva;
     struct page *page;
@@ -86,7 +92,13 @@ struct page_operations {
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
-struct supplemental_page_table {};
+struct supplemental_page_table {
+
+    //페이지들을 관리할 해시테이블
+    struct hash pages; 
+
+
+};
 
 #include "threads/thread.h"
 void supplemental_page_table_init(struct supplemental_page_table *spt);
