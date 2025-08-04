@@ -94,7 +94,8 @@ struct page_operations {
  * All designs up to you for this. */
 struct supplemental_page_table {
 
-    struct hash_elem pages;
+    //페이지들을 관리할 해시테이블
+    struct hash pages; 
 
 
 };
