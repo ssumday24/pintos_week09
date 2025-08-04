@@ -187,7 +187,8 @@ bool vm_claim_page(void *va UNUSED) {
     page = spt_find_page(&thread_current()->spt,va);
 
     if(page == NULL){
-        PANIC("failed to get page!\n");
+        printf("failed to get page!\n");
+        return false;
     }
     return vm_do_claim_page(page);
 }
@@ -199,7 +200,8 @@ static bool vm_do_claim_page(struct page *page) {
     struct frame *frame = vm_get_frame();
 
     if(frame == NULL){  //vm_get_frame()으로 받아온 frame이 NULL이면 예외처리
-        PANIC("Failed to Receive frame\n");
+        printf("Failed to Receive frame\n");
+        return false;
     }
     /* Set links */
     frame->page = page;
@@ -210,7 +212,8 @@ static bool vm_do_claim_page(struct page *page) {
     /* TODO: Insert page table entry to map page's VA to frame's PA. */
     // FIX : 처음에는 frame->page를 넘겨줬는데, 유저 영역의 VA 와 커널 영역의 실제 메모리 주소를 매핑하는 것이므로 page->va로 변경 
     if(!pml4_set_page(thread_current()->pml4, page->va, frame->kva, 1)){  // true, false를 반환하므로, 실패 시 에러 처리
-        PANIC("Failed to Insert page table entry to map page's VA to frame's PA");
+        printf("Failed to Insert page table entry to map page's VA to frame's PA");
+        return false;
     }
 
     return swap_in(page, frame->kva);
