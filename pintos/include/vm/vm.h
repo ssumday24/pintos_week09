@@ -40,11 +40,9 @@ struct page {
         struct page_cache page_cache;
 #endif
     };
-
+    bool writable;
     // 해시테이블 멤버 추가 08.04
     struct hash_elem hash_elem;
-
-
 
 };
 

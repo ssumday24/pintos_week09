@@ -61,15 +61,33 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
     ASSERT(VM_TYPE(type) != VM_UNINIT)
 
     struct supplemental_page_table *spt = &thread_current()->spt;
-
+    
     /* Check wheter the upage is already occupied or not. */
     if (spt_find_page(spt, upage) == NULL) {
         /* TODO: Create the page, fetch the initialier according to the VM type,
          * TODO: and then create "uninit" page struct by calling uninit_new. You
          * TODO: should modify the field after calling the uninit_new. */
 
+        struct page * new_page = malloc(sizeof(struct page));
+        
+        if(new_page == NULL) goto err;
+        
+        if(VM_TYPE(type) == VM_ANON){
+            uninit_new(new_page,upage,init,type,aux,anon_initializer);
+        }
+        else{
+            uninit_new(new_page,upage,init,type,aux,file_backed_initializer);
+        }
+        
+        new_page->writable = writable;
         /* TODO: Insert the page into the spt. */
+
+        if(!spt_insert_page(spt,new_page)){
+            goto err;
+        }
     }
+    return true;
+
 err:
     return false;
 }
@@ -170,8 +188,8 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool us
     struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
     struct page *page = NULL;
     /* TODO: Validate the fault */
+    // if(is_kern_addr(addr) || addr == NULL || page = spt_find_page(spt,addr) == NULL) return false
     /* TODO: Your code goes here */
- 
     // invalid -> 종료 / free   ||  valid -> vm_do_claim_page
 
 
@@ -235,7 +253,13 @@ void supplemental_page_table_init(struct supplemental_page_table *spt) {
 
 /* Copy supplemental page table from src to dst */
 bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
-                                  struct supplemental_page_table *src UNUSED) {}
+                                  struct supplemental_page_table *src UNUSED) {
+
+/* TODO: Iterate through each page in the src's supplemental page table and
+   TODO: make a exact copy of the entry in the dst's supplemental page table. 
+   TODO: You will need to allocate uninit page and claim them immediately.
+*/
+}
 
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED) {

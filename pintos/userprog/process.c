@@ -23,6 +23,7 @@
 
 #ifdef VM
 #include "vm/vm.h"
+
 #endif
 
 static void process_cleanup(void);
@@ -784,7 +785,8 @@ static bool install_page(void *upage, void *kpage, bool writable) {
  * upper block. */
 
 static bool lazy_load_segment(struct page *page, void *aux) {
-    /* TODO: Load the segment from the file */
+    // aux 파싱
+    /* TODO: Load the segment from the file */ 
     /* TODO: This called when the first page fault occurs on address VA. */
     /* TODO: VA is available when calling this function. */
 }
@@ -817,10 +819,19 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t 
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
         /* TODO: Set up aux to pass information to the lazy_load_segment. */
-        void *aux = NULL;
-        if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, aux))
-            return false;
+        // !!! file, ofs, page_read_bytes,page_zero_bytes,writable(?),upage 이 정도?
+        // ofs 을 갱신해줄 필요가 있을 수 있다.
 
+        void *aux = NULL;
+        // aux 구조체 allocate
+        // aux 할당 NULL 체크
+
+        if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, aux)){
+            // aux 구조체 Free
+            return false;
+        }
+            // aux 구조체 Free
+        
         /* Advance. */
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
@@ -834,10 +845,18 @@ static bool setup_stack(struct intr_frame *if_) {
     bool success = false;
     void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
+    //bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
+    //vm_initializer *init, void *aux); 이거를 써야해
     /* TODO: Map the stack on stack_bottom and claim the page immediately.
      * TODO: If success, set the rsp accordingly.
      * TODO: You should mark the page is stack. */
     /* TODO: Your code goes here */
+
+    if(success = vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, stack_bottom, true, NULL, NULL)){    //type: ANON 타입 스택 페이지, page: 스택 주소, writable : 참, init: 필요X, aux: 필요X
+        if(success = vm_claim_page(stack_bottom)){
+            if_->rsp = USER_STACK;
+        }
+    }
 
     return success;
 }
