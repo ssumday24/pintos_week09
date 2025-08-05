@@ -40,14 +40,19 @@ void uninit_new(struct page *page, void *va, vm_initializer *init, enum vm_type 
 }
 
 /* Initalize the page on first fault */
+// 페이지 폴트가 발생했을 때, uninit 페이지를 초기화
+// 페이지 타입에 맞는 초기화 함수(init) 호출
 static bool uninit_initialize(struct page *page, void *kva) {
+    // 1. 페이지의 uninit 구조체 접근
     struct uninit_page *uninit = &page->uninit;
 
     /* Fetch first, page_initialize may overwrite the values */
+    // 2. uninit_page 에 저장된 초기화 함수(init) 와 aux 가져옴
     vm_initializer *init = uninit->init;
     void *aux = uninit->aux;
 
     /* TODO: You may need to fix this function. */
+    // 페이지에 맞게  initialize
     return uninit->page_initializer(page, uninit->type, kva) && (init ? init(page, aux) : true);
 }
 
