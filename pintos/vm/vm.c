@@ -206,7 +206,7 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
     }
 
     // spt 해시테이블에서 addr(va) 와 일치하는 페이지 찾기
-    page = spt_find_page(spt, addr);
+    page = spt_find_page(spt, pg_round_down(addr));
 
     // FIX : 예외처리 추가
     if ( page == NULL){
