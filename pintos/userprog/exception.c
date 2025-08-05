@@ -129,9 +129,12 @@ static void page_fault(struct intr_frame *f) {
     /* Turn interrupts back on (they were only off so that we could
        be assured of reading CR2 before it changed). */
     intr_enable();
-    if ((f->error_code & PF_U) != 0) {
-        exit(-1);
-    }
+
+   /* Project #3 부터는 정당한 페이지폴트 발생을 처리해줘야 함 */
+   //  if ((f->error_code & PF_U) != 0) {
+   //      exit(-1);
+   //  }
+
     /* Determine cause. */
     not_present = (f->error_code & PF_P) == 0;
     write = (f->error_code & PF_W) != 0;

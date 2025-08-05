@@ -44,7 +44,8 @@ struct page {
     // 해시테이블 멤버 추가 08.04
     struct hash_elem hash_elem;
 
-
+    // writable 멤버 추가 08.05
+    bool writable;
 
 };
 

@@ -2,14 +2,9 @@
 
 #include "vm/vm.h"
 
-// #include "threads/malloc.h"
-// #include "vm/inspect.h"
-// #include <hash.h>
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
-
-
 
 //loader_kern_base 매크로 변수를 사용하기 위한 헤더 파일
 // #include "threads/loader.h"
@@ -63,6 +58,8 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
     struct supplemental_page_table *spt = &thread_current()->spt;
 
     /* Check wheter the upage is already occupied or not. */
+    // 가상 주소가 이미 사용중인지 확인
+    // UNINIT 페이지 만들기
     if (spt_find_page(spt, upage) == NULL) {
         /* TODO: Create the page, fetch the initialier according to the VM type,
          * TODO: and then create "uninit" page struct by calling uninit_new. You
@@ -165,16 +162,33 @@ static bool vm_handle_wp(struct page *page UNUSED) {}
 
 /* Return true on success. */ 
 // 페이지 폴트 핸들러
-bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool user UNUSED,
-                         bool write UNUSED, bool not_present UNUSED) {
-    struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
+bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
+                         bool write , bool not_present ) {
+    struct supplemental_page_table *spt  = &thread_current()->spt;
     struct page *page = NULL;
     /* TODO: Validate the fault */
     /* TODO: Your code goes here */
  
-    // invalid -> 종료 / free   ||  valid -> vm_do_claim_page
+    /* ===== Invalid 페이지 폴트인지 검사 ===== */
+    // 1. addr 가 NULL 일때
+    if( addr == NULL){
+        return false;
+    }
 
+    // 2. 사용자 모드에서 -> 커널 영역에 접근했을때
+    if( user == true && is_kernel_vaddr(addr) ) {
+        return false;
+    }
 
+    // 3. Read-Only 파일에 쓰기 시도
+    if ( write == true && not_present == false ){
+        return false;
+    }
+
+    // spt 해시테이블에서 addr(va) 와 일치하는 페이지 찾기
+    page = spt_find_page(spt, addr);
+
+    /* lazy-loading , 스왑 처리 */
     return vm_do_claim_page(page);
 }
 
@@ -212,14 +226,16 @@ static bool vm_do_claim_page(struct page *page) {
         return false;
     }
     /* Set links */
+    // Eviction 때 링킹 필요
     frame->page = page;
     page->frame = frame;
-
+ 
     // FIX: pml4_set_page 안에 vtop() 함수 안에서 아래 과정을 처리하고 있어서 주석처리함.
 
     /* TODO: Insert page table entry to map page's VA to frame's PA. */
     // FIX : 처음에는 frame->page를 넘겨줬는데, 유저 영역의 VA 와 커널 영역의 실제 메모리 주소를 매핑하는 것이므로 page->va로 변경 
-    if(!pml4_set_page(thread_current()->pml4, page->va, frame->kva, 1)){  // true, false를 반환하므로, 실패 시 에러 처리
+    // FIX : 인자를 writable 로 넘겨주도록 수정
+    if(!pml4_set_page(thread_current()->pml4, page->va, frame->kva, page->writable)){  // true, false를 반환하므로, 실패 시 에러 처리
         printf("Failed to Insert page table entry to map page's VA to frame's PA");
         return false;
     }
