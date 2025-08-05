@@ -14,6 +14,7 @@
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
+#include "threads/malloc.h"
 #include "threads/mmu.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
@@ -24,7 +25,17 @@
 #ifdef VM
 #include "vm/vm.h"
 
+
+// [0805] 파일정보 관리용 구조체 선언
+struct file_aux {
+    struct file *file;          // 파일 주소
+    off_t ofs;                  // 파일 내 읽을 위치
+    size_t page_read_bytes;     // 읽을 바이트 수
+    size_t page_zero_bytes;     // zero 패딩할 바이트 수
+};
 #endif
+
+
 
 static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
@@ -785,10 +796,29 @@ static bool install_page(void *upage, void *kpage, bool writable) {
  * upper block. */
 
 static bool lazy_load_segment(struct page *page, void *aux) {
+
     // aux 파싱
     /* TODO: Load the segment from the file */ 
     /* TODO: This called when the first page fault occurs on address VA. */
     /* TODO: VA is available when calling this function. */
+    struct file_aux *fa = (struct file_aux *)(aux);
+    uint8_t *kpage = page -> frame -> kva;
+    struct file *_file = fa -> file;
+    off_t _ofs = fa -> ofs;
+    size_t _page_read_bytes = fa -> page_read_bytes;
+    size_t _page_zero_bytes = fa -> page_zero_bytes;
+    free(aux);
+
+    // 파일 읽기
+    if (file_read_at(_file, kpage, _page_read_bytes, _ofs) != _page_read_bytes){
+        return false;   // 지정한 바이트와 실제 읽은 바이트가 동일해야 함
+    }
+
+    // zero padding
+    memset(kpage + _page_read_bytes, 0, _page_zero_bytes);
+
+    return true;
+
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -819,23 +849,24 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t 
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
         /* TODO: Set up aux to pass information to the lazy_load_segment. */
-        // !!! file, ofs, page_read_bytes,page_zero_bytes,writable(?),upage 이 정도?
-        // ofs 을 갱신해줄 필요가 있을 수 있다.
+        // [0805] 구조체 aux에 파일정보 저장
+        struct file_aux *aux = malloc(sizeof(struct file_aux));
+        aux -> file = file;
+        aux -> ofs = ofs;
+        aux -> page_read_bytes = page_read_bytes;
+        aux -> page_zero_bytes = page_zero_bytes;
 
-        void *aux = NULL;
-        // aux 구조체 allocate
-        // aux 할당 NULL 체크
-
+        // 구조체 aux를 vm_alloc_page_with_initializer에 저장
         if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, aux)){
-            // aux 구조체 Free
+            free(aux);
             return false;
         }
-            // aux 구조체 Free
-        
+            
         /* Advance. */
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
         upage += PGSIZE;
+        ofs += page_read_bytes;   // 읽은 만큼 ofs에 더함
     }
     return true;
 }
