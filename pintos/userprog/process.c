@@ -794,7 +794,7 @@ static bool install_page(void *upage, void *kpage, bool writable) {
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
-
+// 페이지 폴트 -> lazy_load 호출 -> aux 내용에 따라 물리프레임에 데이터 채워넣음
 static bool lazy_load_segment(struct page *page, void *aux) {
 
     // aux 파싱
@@ -835,12 +835,16 @@ static bool lazy_load_segment(struct page *page, void *aux) {
  *
  * Return true if successful, false if a memory allocation error
  * or disk read error occurs. */
+// 처음 프로그램 로드시 호출
 static bool load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes,
                          uint32_t zero_bytes, bool writable) {
     ASSERT((read_bytes + zero_bytes) % PGSIZE == 0);
     ASSERT(pg_ofs(upage) == 0);
     ASSERT(ofs % PGSIZE == 0);
-
+    
+    /* 하나의 세그먼트는 여러 페이지로 구성되므로 
+       루프의 한 싸이클 -> 가상 페이지 1개 처리
+    */
     while (read_bytes > 0 || zero_bytes > 0) {
         /* Do calculate how to fill this page.
          * We will read PAGE_READ_BYTES bytes from FILE
@@ -863,9 +867,9 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t 
         }
             
         /* Advance. */
-        read_bytes -= page_read_bytes;
-        zero_bytes -= page_zero_bytes;
-        upage += PGSIZE;
+        read_bytes -= page_read_bytes; //segment 전체에서 읽어와야할 총 남은 바이트수
+        zero_bytes -= page_zero_bytes; //segment 전체에서 0으로 채워야할 총 남은 바이트수
+        upage += PGSIZE; // 다음 루프에서 처리할 가상페이지의 시작주소로 이동
         ofs += page_read_bytes;   // 읽은 만큼 ofs에 더함
     }
     return true;
@@ -883,9 +887,11 @@ static bool setup_stack(struct intr_frame *if_) {
      * TODO: You should mark the page is stack. */
     /* TODO: Your code goes here */
 
-    if(success = vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, stack_bottom, true, NULL, NULL)){    //type: ANON 타입 스택 페이지, page: 스택 주소, writable : 참, init: 필요X, aux: 필요X
+    if(success = vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, stack_bottom, true, NULL, NULL)){    
+        //type: ANON 타입 스택 페이지, page: 스택 주소, writable : 참, init: 필요X, aux: 필요X
+        // 스택은 즉시 사용되므로 lazy_loading 없이 바로 물리프레임 할당후 매핑
         if(success = vm_claim_page(stack_bottom)){
-            if_->rsp = USER_STACK;
+            if_->rsp = USER_STACK; // rsp 를 스택 최상단으로 설정
         }
     }
 
