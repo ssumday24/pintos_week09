@@ -69,10 +69,10 @@ static void uninit_destroy(struct page *page) {
      /* [08.06] Page Cleaup 수행 
         한번도 사용 되지 않은 uninit 페이지 -> aux만 free
      */
-     if (uninit->aux !=NULL)
-     {
-        free(uninit->aux);
-     }
+    //  if (uninit->aux !=NULL)
+    //  {
+    //     free(uninit->aux);
+    //  }
 
 
 }

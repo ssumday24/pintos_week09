@@ -84,6 +84,11 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
             free(new_page);
             goto err;
         }
+
+    } else {
+        // 이미 동일 주소 존재
+        printf("이미 동일한 주소가 존재\n");
+        return false;
     }
     return true;
 
@@ -238,6 +243,7 @@ bool vm_claim_page(void *va UNUSED) {
         printf("failed to get page!\n");
         return false;
     }
+
     return vm_do_claim_page(page);
 }
 
@@ -344,12 +350,19 @@ bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_
         
         if(child_page == NULL) goto err;
 
+        vm_initializer *p_init = NULL;
+        void *p_aux = NULL;
+        bool claim_page = true;
+
         if(VM_TYPE(type) == VM_UNINIT){ //부모 페이지 상태가 Uninit이면 페이지 type을 새로 구해줌
+            claim_page = false;
             type = parent_page->uninit.type;
+            // p_init = parent_page->uninit.init;
+            // p_aux = parent_page->uninit.aux;
         }
 
         if(VM_TYPE(type) == VM_ANON){   // anon은 NULL 해도 됨
-            uninit_new(child_page,parent_page->va,NULL,type,NULL,anon_initializer);
+            uninit_new(child_page,parent_page->va,p_init,type,p_aux,anon_initializer);
         }
         else{   //file-backed는 NULL 하면 안 되는데 일단 NULL로 해두고 나중에 바꾸기
             uninit_new(child_page,parent_page->va,NULL,type,NULL,file_backed_initializer);
@@ -363,13 +376,16 @@ bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_
             goto err;
         }
         
-        if(!vm_claim_page(child_page->va)){
-            free(child_page);
-            goto err;
+        if (claim_page){
+            if(!vm_claim_page(child_page->va)){
+                free(child_page);
+                goto err;
+            }
+            if(parent_page->frame){
+                memcpy(child_page->frame->kva,parent_page->frame->kva,PGSIZE);
+            }
         }
-        if(parent_page->frame){
-            memcpy(child_page->frame->kva,parent_page->frame->kva,PGSIZE);
-        }
+        
     }
 
     return true;
