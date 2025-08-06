@@ -47,6 +47,8 @@ enum vm_type page_get_type(struct page *page) {
 static struct frame *vm_get_victim(void);
 static bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
+// Helper 함수라서 static으로 선언.
+static bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_spt, enum vm_type type, void* va);
 
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
@@ -274,9 +276,17 @@ void supplemental_page_table_init(struct supplemental_page_table *spt) {
 }
 
 /* Copy supplemental page table from src to dst */
-bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
-                                  struct supplemental_page_table *src UNUSED) {
+bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, struct supplemental_page_table *src UNUSED) 
+{
+    
+    struct hash_iterator it;
+    hash_first(&it, &src->pages);
 
+    while(hash_next(&it)){
+        struct page * parent_page = hash_entry(hash_cur(&it),struct page, hash_elem);
+        if(!vm_do_copy(parent_page,dst,parent_page->operations->type, parent_page->va)) return false;
+    }
+    return true;
 /* TODO: Iterate through each page in the src's supplemental page table and
    TODO: make a exact copy of the entry in the dst's supplemental page table. 
    TODO: You will need to allocate uninit page and claim them immediately.
@@ -287,6 +297,18 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED) {
     /* TODO: Destroy all the supplemental_page_table hold by thread and
      * TODO: writeback all the modified contents to the storage. */
+    struct hash_iterator it;
+
+    hash_first(&it,&spt->pages);
+    while(hash_next(&it)){
+        struct page * p = hash_entry(hash_cur(&it),struct page,hash_elem);
+        /* dirty 상태라면 디스크에 writeback 을 해야함
+        if(pml4_is_dirty(thread_current()->pml4,p->va)){
+            swap 과 mmap 구현하면 필요할듯
+        }
+        */
+       vm_dealloc_page(p);
+    }
 }
 
 /* ===== 해시 함수 추가 부분 08.04 ===== */
@@ -302,4 +324,45 @@ bool page_less(const struct hash_elem *a_,
     const struct page *b =hash_entry(b_,struct page, hash_elem);
                 
     return a->va < b-> va;
+}
+
+bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_spt, enum vm_type type,void* va) {
+
+    if (spt_find_page(child_spt, va) == NULL) {
+
+        struct page * child_page = malloc(sizeof(struct page));
+        
+        if(child_page == NULL) goto err;
+
+        if(VM_TYPE(type) == VM_UNINIT){ //부모 페이지 상태가 Uninit이면 페이지 type을 새로 구해줌
+            type = parent_page->uninit.type;
+        }
+
+        if(VM_TYPE(type) == VM_ANON){   // anon은 NULL 해도 됨
+            uninit_new(child_page,parent_page->va,NULL,type,NULL,anon_initializer);
+        }
+        else{   //file-backed는 NULL 하면 안 되는데 일단 NULL로 해두고 나중에 바꾸기
+            uninit_new(child_page,parent_page->va,NULL,type,NULL,file_backed_initializer);
+        }
+
+        child_page->hash_elem = parent_page->hash_elem;
+        child_page->writable = parent_page->writable;
+
+        if(!spt_insert_page(child_spt,child_page)){
+            free(child_page);
+            goto err;
+        }
+        
+        if(!vm_claim_page(child_page->va)){
+            free(child_page);
+            goto err;
+        }
+        if(parent_page->frame){
+            memcpy(child_page->frame->kva,parent_page->frame->kva,PGSIZE);
+        }
+    }
+
+    return true;
+err:
+    return false;
 }

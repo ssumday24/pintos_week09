@@ -131,9 +131,7 @@ static void page_fault(struct intr_frame *f) {
     intr_enable();
 
    /* Project #3 부터는 정당한 페이지폴트 발생을 처리해줘야 함 */
-   //  if ((f->error_code & PF_U) != 0) {
-   //      exit(-1);
-   //  }
+
 
     /* Determine cause. */
     not_present = (f->error_code & PF_P) == 0;
@@ -153,6 +151,10 @@ static void page_fault(struct intr_frame *f) {
 
     /* Count page faults. */
     page_fault_cnt++;
+    
+    if ((f->error_code & PF_U) != 0) {
+      exit(-1);
+   }
 
     /* If the fault is true fault, show info and exit. */
     printf("Page fault at %p: %s error %s page in %s context.\n", fault_addr,
