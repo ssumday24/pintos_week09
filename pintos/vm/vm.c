@@ -15,7 +15,7 @@
 unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED);
 bool page_less(const struct hash_elem *a_, 
                 const struct hash_elem *b_, void *aux UNUSED);
-
+void destroy_hash_entry(struct hash_elem *e);
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -294,36 +294,43 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, st
 }
 
 /* Free the resource hold by the supplemental page table */
-void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED) {
+void supplemental_page_table_kill(struct supplemental_page_table *spt) {
     /* TODO: Destroy all the supplemental_page_table hold by thread and
      * TODO: writeback all the modified contents to the storage. */
-    struct hash_iterator it;
 
-    hash_first(&it,&spt->pages);
-    while(hash_next(&it)){
-        struct page * p = hash_entry(hash_cur(&it),struct page,hash_elem);
-        /* dirty 상태라면 디스크에 writeback 을 해야함
-        if(pml4_is_dirty(thread_current()->pml4,p->va)){
-            swap 과 mmap 구현하면 필요할듯
-        }
-        */
-       vm_dealloc_page(p);
-    }
+    // SPT 를 순회하면서 destroy(page) 
+    struct hash_iterator i;
+
+    // iterator 를 해시테이블 첫 원소의 앞으로 이동
+    hash_first(&i,&spt->pages);
+
+    // 해시테이블의 모든 원소를 삭제 
+    // hash_clear 내부에서 destroy_hash_entry 를 모든 원소마다 해주는듯
+    hash_destroy(&spt->pages , destroy_hash_entry);
 }
 
-/* ===== 해시 함수 추가 부분 08.04 ===== */
+/* ===== [08.04]해시 함수 추가 부분 ===== */
 unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED){
     const struct page *p = hash_entry(p_,struct page, hash_elem);
     return hash_bytes(&p->va,sizeof (p->va));
 }
 
-/* ===== 해시 함수 추가 부분 08.04 ===== */
+/* ===== [08.04] 해시 함수 추가 부분 ===== */
 bool page_less(const struct hash_elem *a_, 
                 const struct hash_elem *b_, void *aux UNUSED){
     const struct page *a =hash_entry(a_,struct page,hash_elem);
     const struct page *b =hash_entry(b_,struct page, hash_elem);
                 
     return a->va < b-> va;
+}
+
+/* ===== [08.06] 해시 테이블 엔트리 destroy ===== */
+void destroy_hash_entry(struct hash_elem *e)
+{
+    struct page *p = hash_entry(e,struct page,hash_elem);
+
+    //페이지 타입에 맞게 uninit_destroy / anon_destroy 호출 
+    destroy(p);
 }
 
 bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_spt, enum vm_type type,void* va) {
