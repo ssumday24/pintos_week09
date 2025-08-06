@@ -145,6 +145,11 @@ static void page_fault(struct intr_frame *f) {
     if (vm_try_handle_fault(f, fault_addr, user, write, not_present))
         return;
 #endif
+   //[08.06] bad- TC 통과 위해 위치 수정
+    if ((f->error_code & PF_U) != 0) {
+        exit(-1);
+    }
+
 
     /* Count page faults. */
     page_fault_cnt++;
