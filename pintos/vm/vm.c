@@ -296,7 +296,7 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt) {
 
     // 해시테이블의 모든 원소를 삭제 
     // hash_clear 내부에서 destroy_hash_entry 를 모든 원소마다 해주는듯
-    hash_clear (&spt->pages , destroy_hash_entry);
+    hash_destroy(&spt->pages , destroy_hash_entry);
 
 }
 
