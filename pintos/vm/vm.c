@@ -306,7 +306,10 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt) {
 
     // 해시테이블의 모든 원소를 삭제 
     // hash_clear 내부에서 destroy_hash_entry 를 모든 원소마다 해주는듯
-    hash_destroy(&spt->pages , destroy_hash_entry);
+    while(hash_next(&i)){ 
+        struct page *p = hash_entry(hash_cur(&i),struct page, hash_elem);
+        destroy(p);
+    }
 }
 
 /* ===== [08.04]해시 함수 추가 부분 ===== */
@@ -324,14 +327,14 @@ bool page_less(const struct hash_elem *a_,
     return a->va < b-> va;
 }
 
-/* ===== [08.06] 해시 테이블 엔트리 destroy ===== */
-void destroy_hash_entry(struct hash_elem *e)
-{
-    struct page *p = hash_entry(e,struct page,hash_elem);
+// /* ===== [08.06] 해시 테이블 엔트리 destroy ===== */
+// void destroy_hash_entry(struct hash_elem *e)
+// {
+//     struct page *p = hash_entry(e,struct page,hash_elem);
 
-    //페이지 타입에 맞게 uninit_destroy / anon_destroy 호출 
-    destroy(p);
-}
+//     //페이지 타입에 맞게 uninit_destroy / anon_destroy 호출 
+//     destroy(p);
+// }
 
 bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_spt, enum vm_type type,void* va) {
 
