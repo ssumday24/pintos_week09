@@ -479,8 +479,8 @@ static bool check_address(void *addr) {
     if (cur->pml4 == NULL) {
         return false;
     }
-
-    void *page = pml4_get_page(cur->pml4, addr);
+    
+    void *page = spt_find_page(&cur->spt,pg_round_down(addr));
     if (page == NULL) {
         return false;
     }
