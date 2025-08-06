@@ -65,6 +65,7 @@ static void uninit_destroy(struct page *page) {
     /* TODO: Fill this function.
      * TODO: If you don't have anything to do, just return. */
 
+
      /* [08.06] Page Cleaup 수행 
         한번도 사용 되지 않은 uninit 페이지 -> aux만 free
      */
@@ -72,5 +73,6 @@ static void uninit_destroy(struct page *page) {
      {
         free(uninit->aux);
      }
+
 
 }

@@ -47,6 +47,8 @@ enum vm_type page_get_type(struct page *page) {
 static struct frame *vm_get_victim(void);
 static bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
+// Helper 함수라서 static으로 선언.
+static bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_spt, enum vm_type type, void* va);
 
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
@@ -274,9 +276,17 @@ void supplemental_page_table_init(struct supplemental_page_table *spt) {
 }
 
 /* Copy supplemental page table from src to dst */
-bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
-                                  struct supplemental_page_table *src UNUSED) {
+bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, struct supplemental_page_table *src UNUSED) 
+{
+    
+    struct hash_iterator it;
+    hash_first(&it, &src->pages);
 
+    while(hash_next(&it)){
+        struct page * parent_page = hash_entry(hash_cur(&it),struct page, hash_elem);
+        if(!vm_do_copy(parent_page,dst,parent_page->operations->type, parent_page->va)) return false;
+    }
+    return true;
 /* TODO: Iterate through each page in the src's supplemental page table and
    TODO: make a exact copy of the entry in the dst's supplemental page table. 
    TODO: You will need to allocate uninit page and claim them immediately.
@@ -297,7 +307,6 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt) {
     // 해시테이블의 모든 원소를 삭제 
     // hash_clear 내부에서 destroy_hash_entry 를 모든 원소마다 해주는듯
     hash_destroy(&spt->pages , destroy_hash_entry);
-
 }
 
 /* ===== [08.04]해시 함수 추가 부분 ===== */
@@ -322,4 +331,45 @@ void destroy_hash_entry(struct hash_elem *e)
 
     //페이지 타입에 맞게 uninit_destroy / anon_destroy 호출 
     destroy(p);
+}
+
+bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_spt, enum vm_type type,void* va) {
+
+    if (spt_find_page(child_spt, va) == NULL) {
+
+        struct page * child_page = malloc(sizeof(struct page));
+        
+        if(child_page == NULL) goto err;
+
+        if(VM_TYPE(type) == VM_UNINIT){ //부모 페이지 상태가 Uninit이면 페이지 type을 새로 구해줌
+            type = parent_page->uninit.type;
+        }
+
+        if(VM_TYPE(type) == VM_ANON){   // anon은 NULL 해도 됨
+            uninit_new(child_page,parent_page->va,NULL,type,NULL,anon_initializer);
+        }
+        else{   //file-backed는 NULL 하면 안 되는데 일단 NULL로 해두고 나중에 바꾸기
+            uninit_new(child_page,parent_page->va,NULL,type,NULL,file_backed_initializer);
+        }
+
+        child_page->hash_elem = parent_page->hash_elem;
+        child_page->writable = parent_page->writable;
+
+        if(!spt_insert_page(child_spt,child_page)){
+            free(child_page);
+            goto err;
+        }
+        
+        if(!vm_claim_page(child_page->va)){
+            free(child_page);
+            goto err;
+        }
+        if(parent_page->frame){
+            memcpy(child_page->frame->kva,parent_page->frame->kva,PGSIZE);
+        }
+    }
+
+    return true;
+err:
+    return false;
 }
