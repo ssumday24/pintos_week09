@@ -124,8 +124,8 @@ struct thread {
     struct semaphore exit_sema;  // exit 동기화용
     struct semaphore fork_sema;  // fork 동기화용
     struct thread *parent;       // 부모 스레드 포인터
-    
     /* ---- stack growth를 위한 user 스택 포인터 추가 08.07 ---- */
+
     uintptr_t user_rsp;
 
 #ifdef USERPROG
@@ -135,6 +135,7 @@ struct thread {
 #ifdef VM
     /* Table for whole virtual memory owned by thread. */
     struct supplemental_page_table spt;
+
 #endif
 
     /* Owned by thread.c. */
