@@ -179,7 +179,7 @@ static struct frame *vm_get_frame(void) {
 }
 
 /* Growing the stack. */
-static void vm_stack_growth(void *addr UNUSED) {
+static void vm_stack_growth(void *addr) {
     // 스택 확장을 위한 익명페이지 할당
     // 페이지폴트 발생 주소를 round down
     vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, pg_round_down(addr), true, NULL, NULL);
