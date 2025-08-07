@@ -239,7 +239,7 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
             rsp = thread_current()->user_rsp;
         }
         
-        if ( rsp -8 <= addr && addr < rsp && addr >= USER_STACK - (1<<20)){
+        if ( rsp -8 <= addr && addr <= rsp && addr >= USER_STACK - (1<<20)){
             
             // 스택 공간 할당
             vm_stack_growth(addr);
