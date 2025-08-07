@@ -76,8 +76,9 @@ void syscall_init(void) {
 
 /* ====== 메인 시스템콜 인터페이스  => 커널공간 ===== */
 void syscall_handler(struct intr_frame *f UNUSED) {
-    // TODO: Your implementation goes here.
-    // printf ("system call!\n");  //이부분 Test때는 주석처리
+
+    //컨텍스트 스위칭 발생 전 시점에 User 스택 포인터 저장해두기
+    thread_current()->user_rsp = f->rsp;
 
     int syscall_number = f->R.rax;  // 시스템 콜 번호는 rax 레지스터에 저장됨
     switch (syscall_number) {       // rdi -> rsi -> rdx -> r10 .....
