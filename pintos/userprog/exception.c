@@ -148,7 +148,6 @@ static void page_fault(struct intr_frame *f) {
         exit(-1);
     }
 
-
     /* Count page faults. */
     page_fault_cnt++;
 
