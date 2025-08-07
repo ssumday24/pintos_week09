@@ -197,6 +197,7 @@ void exec(const char *cmd_line) {
         }
     }
 
+    // 3.5 process_exec로 덮어씌우기 전, SPT 테이블을 초기화
     hash_clear(&(thread_current() -> spt.pages), NULL);
 
     // 4. 안전하게 복사된 커널 포인터(cmd_line_copy)를 process_exec에 전달
