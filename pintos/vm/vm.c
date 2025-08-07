@@ -84,6 +84,10 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
             free(new_page);
             goto err;
         }
+
+    } else {
+        // 이미 동일 주소 존재
+        return false;
     }
     return true;
 
@@ -238,6 +242,7 @@ bool vm_claim_page(void *va UNUSED) {
         printf("failed to get page!\n");
         return false;
     }
+
     return vm_do_claim_page(page);
 }
 
