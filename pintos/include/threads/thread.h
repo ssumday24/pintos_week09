@@ -124,8 +124,8 @@ struct thread {
     struct semaphore exit_sema;  // exit 동기화용
     struct semaphore fork_sema;  // fork 동기화용
     struct thread *parent;       // 부모 스레드 포인터
+    /* ---- stack growth를 위한 user 스택 포인터 추가 08.07 ---- */
 
-    // [08.07] rsp 멤버 추가
     uintptr_t user_rsp;
 
 #ifdef USERPROG

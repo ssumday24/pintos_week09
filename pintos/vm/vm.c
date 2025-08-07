@@ -85,12 +85,12 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
             free(new_page);
             goto err;
         }
-    }
 
-    // 페이지가 이미 존재하면 false 반환
-    if (spt_find_page(spt, upage) != NULL){
-        return true;
+    } else {
+        // 이미 동일 주소 존재
+        return false;
     }
+    return true;
 
 err:
     return false;
@@ -180,7 +180,15 @@ static struct frame *vm_get_frame(void) {
 }
 
 /* Growing the stack. */
-static void vm_stack_growth(void *addr UNUSED) {}
+static void vm_stack_growth(void *addr) {
+    // 스택 확장을 위한 익명페이지 할당
+    // 페이지폴트 발생 주소를 round down -> 이미 존재하는 페이지 도달할 때까지 확장
+    void *c_addr;
+    for (c_addr = pg_round_down(addr); ; c_addr += PGSIZE)
+        if (!vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, c_addr, true, NULL, NULL)){
+            break;
+    };
+}
 
 /* Handle the fault on write_protected page */
 static bool vm_handle_wp(struct page *page UNUSED) {}
@@ -191,6 +199,7 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
                          bool write , bool not_present ) {
     struct supplemental_page_table *spt  = &thread_current()->spt;
     struct page *page = NULL;
+
     /* TODO: Validate the fault */
     /* TODO: Your code goes here */
  
@@ -212,6 +221,7 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
 
     // spt 해시테이블에서 addr(va) 와 일치하는 페이지 찾기
     page = spt_find_page(spt, pg_round_down(addr));
+
 
     if ( page == NULL){
         // Stack Growth 가 가능한 상황인지 확인후 처리
@@ -245,6 +255,19 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
         }
     }
 
+    // thread 구조체에 rsp를 참조
+    // addr이 rsp보다 아래에 위치하는지 검사
+    // 근데 얼마나 아래에 있느냐도 검사해야할듯.
+    // 스택의 최대 크기 (1MB)를 넘지 않아야 하고, 또 어떤 조건이 필요하려나??
+    // 얼마나 아래에 있는지로 
+    // 몇 PGSIZE가 필요한지 계산
+    // 이 때 rsp를 pg_round_Down 해야할지, 아니면 spt에서 불러온 page의 va를 기준으로 Pg_round_down을 해야할지 생각해보자
+    // rsp보다 아래에 있는게 유효하면
+    // addr의 page Type을 검사 
+    // file도 아니고, anon도 아니면 
+    // stack growth 호출 -> addr 인자를 넘겨준다.
+    // TODO 근데 spt에 저 주소에 대한 페이지가 존재할까???
+
     /* lazy-loading , 스왑 처리 */
     // SPT 에서 Page 를 못찾았을때
     return vm_do_claim_page(page);
@@ -270,6 +293,7 @@ bool vm_claim_page(void *va UNUSED) {
         printf("failed to get page!\n");
         return false;
     }
+
     return vm_do_claim_page(page);
 }
 
