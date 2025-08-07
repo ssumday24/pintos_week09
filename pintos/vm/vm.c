@@ -198,9 +198,6 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
                          bool write , bool not_present ) {
     struct supplemental_page_table *spt  = &thread_current()->spt;
     struct page *page = NULL;
-    /* TODO: Validate the fault */
-    // if(is_kern_addr(addr) || addr == NULL || page = spt_find_page(spt,addr) == NULL) return false
-    /* TODO: Your code goes here */
  
     /* ===== Invalid 페이지 폴트인지 검사 ===== */
     // 1. addr 가 NULL 일때
@@ -221,10 +218,40 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
     // spt 해시테이블에서 addr(va) 와 일치하는 페이지 찾기
     page = spt_find_page(spt, pg_round_down(addr));
 
+    // if(page == NULL){
+    //     uintptr_t rsp;
+    //     if(user){
+    //         rsp = f->rsp;
+    //     }
+    //     else{
+    //         rsp = thread_current()->user_rsp;
+    //     }
+
+    //     if((rsp > addr && rsp - 8 <= addr) && (addr >= USER_STACK - (1<<20))){
+    //         vm_stack_growth(addr);
+    //         page = spt_find_page(spt,pg_round_down(addr));
+    //     }
+    //     else{
+    //         return false;
+    //     }
+    // }
     // FIX : 예외처리 추가
     if ( page == NULL){
         return false;
     }
+
+    // thread 구조체에 rsp를 참조
+    // addr이 rsp보다 아래에 위치하는지 검사
+    // 근데 얼마나 아래에 있느냐도 검사해야할듯.
+    // 스택의 최대 크기 (1MB)를 넘지 않아야 하고, 또 어떤 조건이 필요하려나??
+    // 얼마나 아래에 있는지로 
+    // 몇 PGSIZE가 필요한지 계산
+    // 이 때 rsp를 pg_round_Down 해야할지, 아니면 spt에서 불러온 page의 va를 기준으로 Pg_round_down을 해야할지 생각해보자
+    // rsp보다 아래에 있는게 유효하면
+    // addr의 page Type을 검사 
+    // file도 아니고, anon도 아니면 
+    // stack growth 호출 -> addr 인자를 넘겨준다.
+    // TODO 근데 spt에 저 주소에 대한 페이지가 존재할까???
 
     /* lazy-loading , 스왑 처리 */
     return vm_do_claim_page(page);
