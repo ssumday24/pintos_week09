@@ -11,6 +11,7 @@
 #include "threads/loader.h"
 #include "threads/thread.h"
 #include "userprog/gdt.h"
+#include "vm/vm.h"
 
 /* ===== 헤더 파일 추가 07.22 =====*/
 #include "filesys/file.h"
@@ -196,8 +197,11 @@ void exec(const char *cmd_line) {
         }
     }
 
+    hash_clear(&(thread_current() -> spt.pages), NULL);
+
     // 4. 안전하게 복사된 커널 포인터(cmd_line_copy)를 process_exec에 전달
     if (process_exec(cmd_line_copy) == -1) {
+
         // process_exec은 성공하면 돌아오지 않으므로, 실패 시에만 종료
         exit(-1);
     }

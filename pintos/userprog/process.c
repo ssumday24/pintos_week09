@@ -887,7 +887,7 @@ static bool setup_stack(struct intr_frame *if_) {
      * TODO: You should mark the page is stack. */
     /* TODO: Your code goes here */
 
-    if(success = vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, stack_bottom, true, NULL, NULL)){    
+    if(success = vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, stack_bottom, true, NULL, NULL)){  
         //type: ANON 타입 스택 페이지, page: 스택 주소, writable : 참, init: 필요X, aux: 필요X
         // 스택은 즉시 사용되므로 lazy_loading 없이 바로 물리프레임 할당후 매핑
         if(success = vm_claim_page(stack_bottom)){
