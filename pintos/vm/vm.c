@@ -179,13 +179,14 @@ static struct frame *vm_get_frame(void) {
 }
 
 /* Growing the stack. */
-static void vm_stack_growth(void *addr UNUSED) {
-
-    // vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0,pg_round_down(addr),true,NULL,NULL);
-    // 몇 PGSIZE가 필요한지 계산
-    // 이 때 rsp를 pg_round_Down 해야할지, 아니면 spt에서 불러온 page의 va를 기준으로 Pg_round_down을 해야할지 생각해보자
-    // 계산한 PGSIZE 만큼 페이지 할당
-    // rsp를 갱신해줘야 하겠지????
+static void vm_stack_growth(void *addr) {
+    // 스택 확장을 위한 익명페이지 할당
+    // 페이지폴트 발생 주소를 round down -> 이미 존재하는 페이지 도달할 때까지 확장
+    void *c_addr;
+    for (c_addr = pg_round_down(addr); ; c_addr += PGSIZE)
+        if (!vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, c_addr, true, NULL, NULL)){
+            break;
+    };
 }
 
 /* Handle the fault on write_protected page */
