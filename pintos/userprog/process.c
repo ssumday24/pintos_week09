@@ -332,6 +332,7 @@ int process_exec(void *f_name) {
         success = load(arg_list[0], &_if);
     }
 
+    // success 가 0이되는 문제
     // 로드 실패 시 할당된 모든 페이지를 해제
     if (!success) {
         palloc_free_page(buffer);
@@ -886,7 +887,7 @@ static bool setup_stack(struct intr_frame *if_) {
      * TODO: If success, set the rsp accordingly.
      * TODO: You should mark the page is stack. */
     /* TODO: Your code goes here */
-
+    
     if(success = vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, stack_bottom, true, NULL, NULL)){    
         //type: ANON 타입 스택 페이지, page: 스택 주소, writable : 참, init: 필요X, aux: 필요X
         // 스택은 즉시 사용되므로 lazy_loading 없이 바로 물리프레임 할당후 매핑

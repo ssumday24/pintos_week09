@@ -11,6 +11,7 @@
 
 //pml4_set_page() 함수를 사용하기 위한 헤더 파일
 #include "threads/mmu.h"
+
 /* ===== 함수 선언 부분 =====*/
 unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED);
 bool page_less(const struct hash_elem *a_, 
@@ -85,7 +86,11 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
             goto err;
         }
     }
-    return true;
+
+    // 페이지가 이미 존재하면 false 반환
+    if (spt_find_page(spt, upage) != NULL){
+        return true;
+    }
 
 err:
     return false;
@@ -209,12 +214,38 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
     // spt 해시테이블에서 addr(va) 와 일치하는 페이지 찾기
     page = spt_find_page(spt, pg_round_down(addr));
 
-    // FIX : 예외처리 추가
     if ( page == NULL){
+        // Stack Growth 가 가능한 상황인지 확인후 처리
+        uintptr_t rsp;
+
+        // 1. User Mode 일때
+        if ( user == true){
+            // 인터럽트 프레임에 저장된 rsp
+            rsp = f->rsp; 
+        }
+        
+        // 2. Kernel Mode 일때
+        else{
+            // 쓰레드 구조체에 저장해둔 rsp
+            rsp = thread_current()->user_rsp;
+        }
+        
+        if ( rsp -8 <= addr && addr < rsp && addr >= USER_STACK - 1<<20){
+            
+            // 스택 공간 할당
+            vm_stack_growth(addr);
+
+            // SPT 에서 addr에 해당하는 페이지 찾기
+            page = spt_find_page(spt,addr);
+            return true;
+        }
+
+        // invalid 페이지폴트?
         return false;
     }
 
     /* lazy-loading , 스왑 처리 */
+    // SPT 에서 Page 를 못찾았을때
     return vm_do_claim_page(page);
 }
 
@@ -265,7 +296,6 @@ static bool vm_do_claim_page(struct page *page) {
         printf("Failed to Insert page table entry to map page's VA to frame's PA");
         return false;
     }
-
     return swap_in(page, frame->kva);
 }
 
@@ -304,8 +334,6 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt) {
     // iterator 를 해시테이블 첫 원소의 앞으로 이동
     hash_first(&i,&spt->pages);
 
-    // 해시테이블의 모든 원소를 삭제 
-    // hash_clear 내부에서 destroy_hash_entry 를 모든 원소마다 해주는듯
     while(hash_next(&i)){ 
         struct page *p = hash_entry(hash_cur(&i),struct page, hash_elem);
         destroy(p);
@@ -327,15 +355,6 @@ bool page_less(const struct hash_elem *a_,
     return a->va < b-> va;
 }
 
-// /* ===== [08.06] 해시 테이블 엔트리 destroy ===== */
-// void destroy_hash_entry(struct hash_elem *e)
-// {
-//     struct page *p = hash_entry(e,struct page,hash_elem);
-
-//     //페이지 타입에 맞게 uninit_destroy / anon_destroy 호출 
-//     destroy(p);
-// }
-
 bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_spt, enum vm_type type,void* va) {
 
     if (spt_find_page(child_spt, va) == NULL) {
@@ -349,6 +368,7 @@ bool vm_do_copy(struct page *parent_page,struct supplemental_page_table * child_
         }
 
         if(VM_TYPE(type) == VM_ANON){   // anon은 NULL 해도 됨
+            //자식은 부모의 현재 타입과 같음
             uninit_new(child_page,parent_page->va,NULL,type,NULL,anon_initializer);
         }
         else{   //file-backed는 NULL 하면 안 되는데 일단 NULL로 해두고 나중에 바꾸기

@@ -125,6 +125,8 @@ struct thread {
     struct semaphore fork_sema;  // fork 동기화용
     struct thread *parent;       // 부모 스레드 포인터
 
+    // [08.07] rsp 멤버 추가
+    uintptr_t user_rsp;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -133,6 +135,7 @@ struct thread {
 #ifdef VM
     /* Table for whole virtual memory owned by thread. */
     struct supplemental_page_table spt;
+
 #endif
 
     /* Owned by thread.c. */
