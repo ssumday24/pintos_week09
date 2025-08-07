@@ -181,7 +181,7 @@ static struct frame *vm_get_frame(void) {
 /* Growing the stack. */
 static void vm_stack_growth(void *addr UNUSED) {
 
-    //vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0,pg_round_down(addr),true,NULL,NULL);
+    // vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0,pg_round_down(addr),true,NULL,NULL);
     // 몇 PGSIZE가 필요한지 계산
     // 이 때 rsp를 pg_round_Down 해야할지, 아니면 spt에서 불러온 page의 va를 기준으로 Pg_round_down을 해야할지 생각해보자
     // 계산한 PGSIZE 만큼 페이지 할당

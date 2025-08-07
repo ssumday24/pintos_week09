@@ -451,7 +451,6 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->wait_on_lock = NULL;
     t->wake_time = -1;
     t->magic = THREAD_MAGIC;
-    t->user_rsp = NULL;
     
     // FD 테이블 초기화
     t->fdt = NULL;
