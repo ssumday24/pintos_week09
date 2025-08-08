@@ -286,7 +286,7 @@ bool vm_claim_page(void *va UNUSED) {
     struct page *page = NULL;
 
     /* TODO: Fill this function */    
-    // spt는 구조체로 선언되어 있어서 &(주소 연산자)를 붙여줌.
+    // spt는 구조체로 선언되 어 있어서 &(주소 연산자)를 붙여줌.
     // EXPECT: 유저 영역의 va와 spt 정보를 넘겨주면 spt에 해당 주소에 대한 정보가 있으면 페이지를 가져올 것을 기대함.
     page = spt_find_page(&thread_current()->spt,va);
 
