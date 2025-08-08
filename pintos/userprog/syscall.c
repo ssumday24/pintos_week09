@@ -503,37 +503,9 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t ofs){
         return NULL;
     }
 
-    map_file = file_reopen(map_file);
-    if (map_file == NULL){
-        return NULL;
-    }
+    return do_mmap(addr, length, writable, map_file, ofs);
 
-    size_t read_bytes = file_length(map_file);
-    void *upage = addr;
-
-    // 반복해서 페이지할당 요청
-    while (read_bytes > 0) {
-        size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-        size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
-        struct file_aux *aux = malloc(sizeof(struct file_aux));
-        aux -> file = map_file;
-        aux -> ofs = ofs;
-        aux -> page_read_bytes = page_read_bytes;
-        aux -> page_zero_bytes = page_zero_bytes;
-
-        if (!vm_alloc_page_with_initializer(VM_FILE, upage, writable, lazy_load_segment, aux)){
-            free(aux);
-            return NULL;
-        }
-        
-        read_bytes -= page_read_bytes;
-        upage += PGSIZE;
-        ofs += page_read_bytes;
-    } 
-
-    // 리스트 삽입 나중에
-    return addr;
+    
 }
 
 //////////////////////////////////////////////////////////////////

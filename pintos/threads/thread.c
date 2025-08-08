@@ -224,6 +224,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 
     /* 리스트 초기화 */
     list_init(&t->child_list);
+    list_init(&t->mmap_list);
 
     /* 부모-자식 관계 설정 */
     t->parent = curr;
