@@ -356,10 +356,17 @@ int read(int fd, void *buffer, unsigned size) {  // Case : 9
         exit(-1);
     }
 
+    // pt-write-code2.c: 쓰기 권한 체크
+    struct page *page = spt_find_page(&thread_current()->spt,pg_round_down(buffer));
+    if (!page || !page -> writable){
+        exit(-1);
+    }
+
     // read-bad-fd.c : fd 범위 벗어나는지 체크
     if (fd < 0 || fd >= FDT_MAX_SIZE) {
         exit(-1);
     }
+
 
     struct thread *cur_thread = thread_current();  // 현재 쓰레드
     int bytes_read = 0;                            // 반환값에 쓸, 읽어온 바이트 수
