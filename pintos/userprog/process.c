@@ -27,12 +27,8 @@
 
 
 // [0805] 파일정보 관리용 구조체 선언
-struct file_aux {
-    struct file *file;          // 파일 주소
-    off_t ofs;                  // 파일 내 읽을 위치
-    size_t page_read_bytes;     // 읽을 바이트 수
-    size_t page_zero_bytes;     // zero 패딩할 바이트 수
-};
+// userprog/process.h로 이사감
+
 #endif
 
 
@@ -796,7 +792,7 @@ static bool install_page(void *upage, void *kpage, bool writable) {
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 // 페이지 폴트 -> lazy_load 호출 -> aux 내용에 따라 물리프레임에 데이터 채워넣음
-static bool lazy_load_segment(struct page *page, void *aux) {
+bool lazy_load_segment(struct page *page, void *aux) {
 
     // aux 파싱
     /* TODO: Load the segment from the file */ 
@@ -811,7 +807,8 @@ static bool lazy_load_segment(struct page *page, void *aux) {
     free(aux);
 
     // 파일 읽기
-    if (file_read_at(_file, kpage, _page_read_bytes, _ofs) != _page_read_bytes){
+    size_t result;
+    if ((result = file_read_at(_file, kpage, _page_read_bytes, _ofs)) != _page_read_bytes){
         return false;   // 지정한 바이트와 실제 읽은 바이트가 동일해야 함
     }
 

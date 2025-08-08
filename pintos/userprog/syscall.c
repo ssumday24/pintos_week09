@@ -1,4 +1,5 @@
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -10,6 +11,7 @@
 #include "threads/interrupt.h"
 #include "threads/loader.h"
 #include "threads/thread.h"
+#include "threads/malloc.h"
 #include "userprog/gdt.h"
 #include "vm/vm.h"
 
@@ -43,6 +45,7 @@ int open(const char *file_name);
 int filesize(int fd);
 int read(int fd, void *buffer, unsigned size);
 void close(int fd);
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 /* ======================================*/
 
 /* System call.
@@ -123,6 +126,12 @@ void syscall_handler(struct intr_frame *f UNUSED) {
             break;
         case SYS_CLOSE:  // case : 13
             close(f->R.rdi);
+            break;
+        case SYS_MMAP:  // case : 14
+            f->R.rax = (uint64_t)mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+            break;
+        case SYS_MUNMAP:    // case : 15
+            // 임시
             break;
         // case SYS_DUP2:
         //     f->R.rax = dup2 (f->R.rdi, f->R.rsi);
@@ -465,6 +474,59 @@ void close(int fd) {  // Case : 13
 
     // 4. FDT 슬롯 비우기
     cur->fdt[fd] = NULL;
+}
+
+void *mmap(void *addr, size_t length, int writable, int fd, off_t ofs){
+    // 실패 조건: 주소 NULL / 크기 0 / page-aligned되지 않은 주소 / invalid offset
+    if (addr == NULL || length == 0 || (uintptr_t)addr % PGSIZE != 0 || ofs % PGSIZE != 0 ){
+        return NULL;
+    }
+
+    // 실패 조건: 커널 영역에 주소가 겹침
+    if (is_kernel_vaddr(addr) || is_kernel_vaddr(addr + length - 1)){
+        return NULL;
+    }
+
+    // 파일찾기
+    struct thread *cur = thread_current();
+    struct file *map_file = cur -> fdt[fd];
+
+    // 실패 조건: fd에 대응하는 파일이 없거나, 파일의 길이가 0인 경우
+    if (map_file == NULL || file_length(map_file) == 0){
+        return NULL;
+    }
+
+    map_file = file_reopen(map_file);
+    if (map_file == NULL){
+        return NULL;
+    }
+
+    size_t read_bytes = file_length(map_file);
+    void *upage = addr;
+
+    // 반복해서 페이지할당 요청
+    while (read_bytes > 0) {
+        size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+        size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+        struct file_aux *aux = malloc(sizeof(struct file_aux));
+        aux -> file = map_file;
+        aux -> ofs = ofs;
+        aux -> page_read_bytes = page_read_bytes;
+        aux -> page_zero_bytes = page_zero_bytes;
+
+        if (!vm_alloc_page_with_initializer(VM_FILE, upage, writable, lazy_load_segment, aux)){
+            free(aux);
+            return NULL;
+        }
+        
+        read_bytes -= page_read_bytes;
+        upage += PGSIZE;
+        ofs += page_read_bytes;
+    } 
+
+    // 리스트 삽입 나중에
+    return addr;
 }
 
 //////////////////////////////////////////////////////////////////
