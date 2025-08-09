@@ -414,6 +414,22 @@ void process_exit(void) {
      * TODO: project2/process_termination.html).
      * TODO: We recommend you to implement process resource cleanup here. */
 
+    #ifdef VM
+
+    // 모든 매핑 unmap
+    while (!list_empty(&curr->mmap_list)){
+        // struct thread의 mmap_list에서 빼기
+        struct list_elem *e = list_pop_front(&curr->mmap_list);
+        struct mmap_file *mf = list_entry(e, struct mmap_file, elem);
+        // 파일 unmapping 수행
+        munmap_file(mf);
+        // file을 close하고, struct mmap_file을 free
+        file_close(mf -> file);
+        free(mf);
+    }
+
+    #endif
+
     // 모든 FDT 닫기
     for (int i = 2; i < FDT_MAX_SIZE; i++) {
         if (curr->fdt[i] != NULL) {
@@ -444,6 +460,10 @@ static void process_cleanup(void) {
 
 #ifdef VM
     supplemental_page_table_kill(&curr->spt);
+    struct list_elem *e;
+    struct mmap_file *mf;
+    
+    
 #endif
 
     uint64_t *pml4;
