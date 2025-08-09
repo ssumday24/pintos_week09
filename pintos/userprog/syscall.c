@@ -16,7 +16,6 @@
 #include "vm/vm.h"
 
 /* ===== 헤더 파일 추가 07.22 =====*/
-#include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/palloc.h"
 #include "threads/synch.h"

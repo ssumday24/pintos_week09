@@ -3,7 +3,9 @@
 #include "vm/vm.h"
 #include "userprog/process.h"
 #include "threads/vaddr.h"
+#include "mmu.h"
 
+// mmap 된 파일에대한 모든정보 저장
 struct mmap_file{
     void *addr;         // 시작 페이지의 주소
     struct file *file;  // 파일 주소
@@ -89,6 +91,7 @@ void *do_mmap(void *addr, size_t length, int writable, struct file *file, off_t 
     mm -> ofs = ofs;
     mm -> length = length;
 
+    // mmap_list에 추가 -> munmap에서 사용
     list_push_back(&thread_current() -> mmap_list, &mm -> elem);
 
     // 리스트 삽입 나중에
@@ -96,4 +99,77 @@ void *do_mmap(void *addr, size_t length, int writable, struct file *file, off_t 
 }
 
 /* Do the munmap */
-void do_munmap(void *addr) {}
+void do_munmap(void *addr) {
+    struct thread *cur = thread_current();
+    struct list_elem *e;
+    struct mmap_file *pmmap_file=NULL; // mmap_list에서 찾을 mmap_file
+    bool found =false; // mmap_file 찾았는지 체크
+    struct page * page =NULL;
+    size_t write_bytes; //총 읽어야 하는 바이트
+    size_t ofs;
+    size_t page_write_bytes_each; // 한 페이지에 쓸 바이트
+
+    // 1. 매핑 정보 검색
+    for (e=list_begin(&cur->mmap_list);e!=list_end(&cur->mmap_list); e = list_next(e))
+    {
+        pmmap_file=list_entry(e,struct mmap_file,elem);
+        
+        // 매핑주소가 동일한 mmap_file 찾았을때
+        if (pmmap_file->addr ==addr){ 
+            found = true;
+            break;
+        }
+    }
+
+    if (found == false){
+        return;
+    }
+
+    /* 여기서 file_length(pmmap_file) == (pmmap_file -> length)
+        인걸까?
+    */ 
+    //페이지 단위로 쓰기
+   
+    write_bytes =file_length(pmmap_file);
+    ofs = pmmap_file->ofs;
+    
+   while (write_bytes> 0) { 
+    
+    //mmap 되어있는 파일 주소
+    struct file * file = pmmap_file->file;
+
+    page = spt_find_page(&cur->spt,addr);
+
+    // SPT 에서 못찾았을때
+    if (page ==NULL){
+            return;
+    }
+    
+    // 한 페이지에 쓸 bytes = min (write_bytes, PGSIZE)
+   page_write_bytes_each = write_bytes < PGSIZE ? write_bytes: PGSIZE;
+
+    // 현재페이지가 메모리에 있고, 더티 비트가 1이면 write-back
+    
+    /* 
+        1. 현재페이지가 메모리에 있다는걸 어떻게 검사할까?
+        현재 메모리에 없어도 SPT에 존재할 수 있지 않을까?
+
+        2. unmap 인자인 addr 과  page->va 의 차이? 여기서는 둘다 같은값일까?
+    */
+
+    if( pml4_is_dirty(cur->pml4,addr)){
+        file_write_at(file,page->va, page_write_bytes_each,ofs);
+    }
+
+    // 프레임이 존재하면 메모리 해제
+    if (page->frame != NULL){
+        free(page->frame);
+    }
+    // hash_delete로쓰기
+    hash_delete(&cur->spt.pages,&page->hash_elem);
+    addr +=PGSIZE;
+    ofs += page_write_bytes_each;
+    write_bytes -=page_write_bytes_each;
+    }
+
+}
