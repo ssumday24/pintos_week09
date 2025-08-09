@@ -239,6 +239,8 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
             rsp = thread_current()->user_rsp;
         }
         
+        // page-merge-stack 테스트케이스 해결 위해선
+        // addr <= rsp 는 빼 줘야 했었음
         if ( rsp -8 <= addr && addr <= rsp && addr >= USER_STACK - (1<<20)){
             
             // 스택 공간 할당

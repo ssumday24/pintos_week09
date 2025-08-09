@@ -131,7 +131,7 @@ void syscall_handler(struct intr_frame *f UNUSED) {
             f->R.rax = (uint64_t)mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
             break;
         case SYS_MUNMAP:    // case : 15
-            // 임시
+            munmap(f->R.rdi);
             break;
         // case SYS_DUP2:
         //     f->R.rax = dup2 (f->R.rdi, f->R.rsi);
@@ -505,7 +505,15 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t ofs){
 
     return do_mmap(addr, length, writable, map_file, ofs);
 
-    
+}
+
+void munmap(void *addr){
+    // 실패 조건
+    if (addr == NULL || is_kernel_vaddr(addr)){
+        return;
+    }
+
+    do_munmap(addr);
 }
 
 //////////////////////////////////////////////////////////////////
