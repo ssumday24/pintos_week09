@@ -241,7 +241,7 @@ bool vm_try_handle_fault(struct intr_frame *f , void *addr , bool user ,
         
         // page-merge-stack 테스트케이스 해결 위해선
         // addr <= rsp 는 빼 줘야 했었음
-        if ( rsp -8 <= addr && addr <= rsp && addr >= USER_STACK - (1<<20)){
+        if ( rsp -8 <= addr && addr >= USER_STACK - (1<<20)){
             
             // 스택 공간 할당
             vm_stack_growth(addr);
@@ -321,7 +321,7 @@ static bool vm_do_claim_page(struct page *page) {
     // FIX : 처음에는 frame->page를 넘겨줬는데, 유저 영역의 VA 와 커널 영역의 실제 메모리 주소를 매핑하는 것이므로 page->va로 변경 
     // FIX : 인자를 writable 로 넘겨주도록 수정
     if(!pml4_set_page(thread_current()->pml4, page->va, frame->kva, page->writable)){  // true, false를 반환하므로, 실패 시 에러 처리
-        printf("Failed to Insert page table entry to map page's VA to frame's PA");
+        // printf("Failed to Insert page table entry to map page's VA to frame's PA");
         return false;
     }
     return swap_in(page, frame->kva);
