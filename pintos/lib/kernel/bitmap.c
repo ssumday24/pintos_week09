@@ -120,6 +120,7 @@ size_t bitmap_size(const struct bitmap *b) {
 /* Setting and testing single bits. */
 
 /* Atomically sets the bit numbered IDX in B to VALUE. */
+// idx 인덱스의 비트를 -> value 로 변경
 void bitmap_set(struct bitmap *b, size_t idx, bool value) {
     ASSERT(b != NULL);
     ASSERT(idx < b->bit_cnt);
@@ -246,6 +247,8 @@ bool bitmap_all(const struct bitmap *b, size_t start, size_t cnt) {
    consecutive bits in B at or after START that are all set to
    VALUE.
    If there is no such group, returns BITMAP_ERROR. */
+// 비트맵 start 지점에서 시작해서, cnt 개 연속으로 비트가 
+// 모두 value 인 구간의 시작 index 반환   
 size_t bitmap_scan(const struct bitmap *b, size_t start, size_t cnt, bool value) {
     ASSERT(b != NULL);
     ASSERT(start <= b->bit_cnt);
@@ -267,6 +270,9 @@ size_t bitmap_scan(const struct bitmap *b, size_t start, size_t cnt, bool value)
    If CNT is zero, returns 0.
    Bits are set atomically, but testing bits is not atomic with
    setting them. */
+// 비트맵 start 지점에서 시작해서, cnt 개 연속으로 비트가 
+// 모두 value 인 구간의 시작 index 반환하는
+// bitmap_scan 이후 모든 값 flip:  1 -> 0 , 0 -> 1
 size_t bitmap_scan_and_flip(struct bitmap *b, size_t start, size_t cnt, bool value) {
     size_t idx = bitmap_scan(b, start, cnt, value);
     if (idx != BITMAP_ERROR)

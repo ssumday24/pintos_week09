@@ -4,7 +4,9 @@
 struct page;
 enum vm_type;
 
-struct anon_page {};
+struct anon_page {
+    int swap_idx; //몇번째 스왑슬롯 인지? 
+};
 
 void vm_anon_init(void);
 bool anon_initializer(struct page *page, enum vm_type type, void *kva);

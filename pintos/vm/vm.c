@@ -158,6 +158,7 @@ static struct frame *vm_get_frame(void) {
     void * new_page = palloc_get_page(PAL_USER);
 
     if(new_page == NULL){
+        // 여기서 Eviction 수행
         PANIC("todo\n");
     }
 

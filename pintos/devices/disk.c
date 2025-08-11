@@ -57,8 +57,7 @@ struct disk {
     int dev_no;              /* Device 0 or 1 for master or slave. */
 
     bool is_ata;            /* 1=This device is an ATA disk. */
-    disk_sector_t capacity; /* Capacity in sectors (if is_ata). */
-
+    disk_sector_t capacity; // [08.11] 디스크 섹터 용량
     long long read_cnt;  /* Number of sectors read. */
     long long write_cnt; /* Number of sectors written. */
 };
@@ -179,8 +178,9 @@ void disk_print_stats(void) {
 0:0 - boot loader, command line args, and operating system kernel
 0:1 - file system
 1:0 - scratch
-1:1 - swap
+1:1 - swap  // 인자로(1,1) 넣으면 스왑 파티션주소 반환
 */
+// 조건에맞는 디스크 블록 주소 반환
 struct disk *disk_get(int chan_no, int dev_no) {
     ASSERT(dev_no == 0 || dev_no == 1);
 
@@ -204,6 +204,8 @@ disk_sector_t disk_size(struct disk *d) {
    room for DISK_SECTOR_SIZE bytes.
    Internally synchronizes accesses to disks, so external
    per-disk locking is unneeded. */
+// 디스크 'd' 에서, 섹터번호 `sec_no`에 해당하는 섹터 전체를 읽고
+// 버퍼에 저장 
 void disk_read(struct disk *d, disk_sector_t sec_no, void *buffer) {
     struct channel *c;
 
@@ -227,6 +229,8 @@ void disk_read(struct disk *d, disk_sector_t sec_no, void *buffer) {
    acknowledged receiving the data.
    Internally synchronizes accesses to disks, so external
    per-disk locking is unneeded. */
+// 버퍼를 , 섹터번호 'sec_no'에 해당하는 섹터전체(512byte)의  
+// 디스크 'd'에 쓰기 
 void disk_write(struct disk *d, disk_sector_t sec_no, const void *buffer) {
     struct channel *c;
 

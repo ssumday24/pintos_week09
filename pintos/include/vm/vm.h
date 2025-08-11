@@ -50,6 +50,11 @@ struct page {
 struct frame {
     void *kva;
     struct page *page;
+
+    //[08.11 추가] 
+    struct list_elem elem; // 프레임테이블에 리스트로 사용
+    struct thread* th; // 이 프레임을 소유한 쓰레드 -> 정확한 pml4 찾아가야함
+    
 };
 
 /* The function table for page operations.
