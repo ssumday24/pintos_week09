@@ -101,7 +101,6 @@ void munmap_file(struct mmap_file *mf){
     void *upage = mf -> addr;
     off_t ofs = mf -> ofs;
     struct page *c_page;
-    size_t result;
 
     while (length > 0){
         
