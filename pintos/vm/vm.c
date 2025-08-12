@@ -12,6 +12,11 @@
 //pml4_set_page() 함수를 사용하기 위한 헤더 파일
 #include "threads/mmu.h"
 
+// 프레임 테이블 글로벌 변수
+#ifdef VM
+struct list frame_table;
+#endif
+
 /* ===== 함수 선언 부분 =====*/
 unsigned page_hash(const struct hash_elem *p_, void *aux UNUSED);
 bool page_less(const struct hash_elem *a_, 
@@ -29,6 +34,9 @@ void vm_init(void) {
     register_inspect_intr();
     /* DO NOT MODIFY UPPER LINES. */
     /* TODO: Your code goes here. */
+#ifdef VM
+    list_init(&frame_table);
+#endif
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -182,10 +190,28 @@ static struct frame *vm_get_victim(void) {
 /* Evict one page and return the corresponding frame.
  * Return NULL on error.*/
 static struct frame *vm_evict_frame(void) {
-    struct frame *victim UNUSED = vm_get_victim();
-    /* TODO: swap out the victim and return the evicted frame. */
+    struct frame *victim = vm_get_victim();
+    struct page *victim_page = victim -> page;
 
-    return NULL;
+    /* TODO: swap out the victim and return the evicted frame. */
+    // 스왑영역 (anon) or 파일 (file-backed)에 쓰기 연산
+    if (!swap_out(victim_page)){
+        return NULL;
+    };
+
+    // pml4테이블에서 제거
+    pml4_clear_page(victim -> th -> pml4, victim_page -> va);
+
+    // 페이지와 프레임 간 연동 해제 (일단 혹시몰라 너도추가)
+    victim_page -> frame = NULL;
+
+    // 물리 프레임 할당 해제
+    palloc_free_page(victim -> kva);
+
+    // 프레임 테이블 리스트에서 없애기
+    list_remove(&victim -> elem);
+
+    return victim;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -194,28 +220,37 @@ static struct frame *vm_evict_frame(void) {
  * space.*/
 static struct frame *vm_get_frame(void) {
     struct frame *frame = NULL;
+    struct frame *victim = NULL;
 
     // 새로운 페이지 할당  -> palloc 은 kva 반환
     void * new_page = palloc_get_page(PAL_USER);
 
-    if(new_page == NULL){
-        PANIC("todo\n");
+    // 할당실패 시 vm_evict_frame 실시 후 다시 시도
+    while (new_page == NULL){
+        if ((victim = vm_evict_frame()) == NULL){
+            PANIC("Frame Eviction 실패!");
+        }
+        free(victim);
+        new_page = palloc_get_page(PAL_USER);
     }
 
-    // 프레임 구조체 할당
+    // 할당성공시 프레임 구조체 할당
     frame = calloc(1,sizeof(struct frame));
-    if(frame == NULL){
+        if(frame == NULL){
         PANIC("to do\n");
     }
+    
     // frame 구조체 멤버 변수 초기화
     // 실제 물리 메모리 page 할당
-    frame->page = NULL;
     // 물리 메모리 주소 -> 가상 주소로 변환
     frame->kva = new_page;    
+    // 현재 쓰레드 명시
+    frame->th = thread_current();
+
+    list_push_back(&frame_table, &frame->elem);
 
     ASSERT(frame != NULL);
     ASSERT(frame->page == NULL);    
-    /* 실제 프레임의 Page는 매핑되기 전까지 빈 New_page를 만들기만 해두고,kva에 newpage에 대한 주소 정보를 담고있어서 나중에 매핑할 때 할당받은 newpage에 데이터를 넣는 느낌인가? */ 
     
     return frame;
 }
