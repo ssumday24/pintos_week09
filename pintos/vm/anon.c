@@ -5,8 +5,7 @@
 #include <bitmap.h>
 
 //[08.11] 헤더 , 전역변수 추가
-#include "bitmap.h"
-#include "mmu.h"
+#include "threads/mmu.h"
 struct bitmap* global_bitmap;
 
 /* DO NOT MODIFY BELOW LINE */

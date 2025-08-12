@@ -7,6 +7,7 @@
 #include "threads/mmu.h"
 #include "threads/malloc.h"
 
+#include "string.h"
 
 static bool file_backed_swap_in(struct page *page, void *kva);
 static bool file_backed_swap_out(struct page *page);
@@ -21,27 +22,80 @@ static const struct page_operations file_ops = {
 };
 
 /* The initializer of file vm */
-void vm_file_init(void) {}
+void vm_file_init(void) {
+    // 할일x
+}
 
 /* Initialize the file backed page */
 bool file_backed_initializer(struct page *page, enum vm_type type, void *kva) {
+    // 앞선 파일 정보 구조체 확인
+    struct file_aux *fa = page -> uninit.aux;
+    bool copy = false;
+    struct file *_file;
+    off_t _ofs;
+    size_t _page_read_bytes, _page_zero_bytes;
+
+    // NULL이 아닌 경우 값 저장
+    if (fa != NULL){
+        copy = true;
+        _file = fa -> file;
+        _ofs = fa -> ofs;
+        _page_read_bytes = fa -> page_read_bytes;
+        _page_zero_bytes = fa -> page_zero_bytes;
+    }
+
     /* Set up the handler */
     page->operations = &file_ops;
 
     struct file_page *file_page = &page->file;
+    
+    // file-backed page로 변경 후 저장값 복사
+    if (copy){
+        file_page -> is_file = true;
+        file_page -> file = _file;
+        file_page -> ofs = _ofs;
+        file_page -> page_read_bytes = _page_read_bytes;
+        file_page -> page_zero_bytes = _page_zero_bytes;
+    } else {
+        file_page -> is_file = false;
+    }
+
     return true;
 }
 
 /* Swap in the page by read contents from the file. */
 static bool file_backed_swap_in(struct page *page, void *kva) {
-    struct file_page *file_page UNUSED = &page->file;
-    return true;    // 임시
+    struct file_page *file_page  = &page->file;
+
+    //파일을 읽어서 버퍼에 복사
+    file_read_at(file_page->file,kva,file_page->page_read_bytes,file_page->ofs);
+
+    // 첫 인자부터 , 0으로, zero_bytes 만큼 채우기 
+    size_t zero_bytes = PGSIZE - file_page->page_zero_bytes;
+    memset(kva + file_page->page_read_bytes,  0,  zero_bytes);
+
+    return true;    
 }
 
 /* Swap out the page by writeback contents to the file. */
 static bool file_backed_swap_out(struct page *page) {
-    struct file_page *file_page UNUSED = &page->file;
-    return true;     // 임시
+    
+    struct file_page *file_page  = &page->file;
+    struct frame* victim = page->frame; //희생 프레임은 이미 결정된 상태
+    
+    // Dirty bit == 1
+    if(pml4_is_dirty(victim->th->pml4,page->va)){
+
+        //인자 순서: 파일,버퍼(RAM),사이즈,오프셋
+        file_write_at(file_page->file,victim->kva,file_page->page_read_bytes,file_page->ofs);
+
+        //더티비트 0 으로 수정
+        pml4_set_dirty(victim->th->pml4, page->va, false);
+    }
+
+    // Dirty bit == 0  일때는 그대로
+   
+    return true;     
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */

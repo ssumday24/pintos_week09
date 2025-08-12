@@ -77,6 +77,8 @@ off_t file_read(struct file *file, void *buffer, off_t size) {
  * Returns the number of bytes actually read,
  * which may be less than SIZE if end of file is reached.
  * The file's current position is unaffected. */
+// 파일의 오프셋부터,버퍼로 ,SIZE 만큼 읽어온다.
+// 실제로 읽은 바이트 수 반환
 off_t file_read_at(struct file *file, void *buffer, off_t size, off_t file_ofs) {
     return inode_read_at(file->inode, buffer, size, file_ofs);
 }
