@@ -137,13 +137,53 @@ void spt_remove_page(struct supplemental_page_table *spt, struct page *page) {
     vm_dealloc_page(page);
     return true;
 }
+    
+//구현에 필요한 변수들 임시로 선언
+
+struct list frame_table;
+struct list_elem * next_pt = NULL;
 
 /* Get the struct frame, that will be evicted. */
 static struct frame *vm_get_victim(void) {
     struct frame *victim = NULL;
-    /* TODO: The policy for eviction is up to you. */
-    victim = list_entry(list_front(&frame_table), struct frame, elem);  // 임시
+    struct list_elem * e;    
 
+    //Second Chance 메커니즘을 맞추기 위해 다음 시작 포인터 추가
+    //초기화가 안 된 상태라면 리스트의 처음 값으로 설정
+
+    //next_pt가 없으면 처음부터, 있으면 next_pt부터
+    if(next_pt == NULL) e = list_begin(&frame_table);
+    else e = next_pt;
+    
+    while(1){
+
+        struct frame * f = list_entry(e,struct frame,elem);
+
+        if(pml4_is_accessed(f->th->pml4,f->page->va)){
+            pml4_set_accessed(f->th->pml4,f->page->va,false);
+        }
+        else{
+            victim = f; // victim 프레임 catch
+            // second_chance 방식 next_pt 엣지 케이스 처리
+            if(list_next(e) == list_end(&frame_table)){
+                next_pt = list_begin(&frame_table);
+            }
+            else{
+                next_pt = list_next(e);
+            }
+            break;
+        }
+
+        // 원형 순회
+        if(list_next(e) == list_end(&frame_table)){
+            e = list_begin(&frame_table);
+        }
+        else{
+            e = list_next(e);
+        }
+
+    }
+    //근데 이거 반복문 두 번 쓰는게 맞는지 모르겠음
     return victim;
 }
 
