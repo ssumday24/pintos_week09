@@ -50,6 +50,8 @@ struct page {
 struct frame {
     void *kva;
     struct page *page;
+
+    //[08.11 추가] 
     struct list_elem elem;  // frame_table 리스트 삽입용
     struct thread *th;      // 현재 프레임 소유(?) 쓰레드
 };
