@@ -5,6 +5,7 @@
 
 //[08.11] 헤더 , 전역변수 추가
 #include "bitmap.h"
+#include "mmu.h"
 struct bitmap* global_bitmap;
 
 /* DO NOT MODIFY BELOW LINE */
@@ -51,7 +52,7 @@ static bool anon_swap_in(struct page *page, void *kva) {
     struct anon_page *anon_page = &page->anon;
     int idx=anon_page->swap_idx; //초기화
   
-    // 디스크에서 섹터 단위(512 byte) 로 읽어서 RAM에 쓰기
+    // 디스크에서  섹터(512byte) 단위로 읽어서 RAM(kva)에 복사
     for (int i=0; i<8 ; i++){
     disk_read(swap_disk, idx *8 + i  , kva + i * DISK_SECTOR_SIZE);
     }
@@ -84,7 +85,7 @@ static bool anon_swap_out(struct page *page) {
         disk_write(swap_disk, idx *8 + i  , (page->frame->kva) + i * DISK_SECTOR_SIZE);
     }
 
-    // swap slot 인덱스 저장
+    // 스왑 인덱스 저장
     anon_page->swap_idx = idx;
 
     // 페이지테이블 매핑 해제 -> vm_evict_frame에서 수행??
