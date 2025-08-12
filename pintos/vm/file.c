@@ -68,7 +68,7 @@ static bool file_backed_swap_in(struct page *page, void *kva) {
     struct file_page *file_page  = &page->file;
 
     //파일을 읽어서 버퍼에 복사
-    if(!file_read_at(file_page->file,kva,file_page->page_read_bytes,file_page->ofs) == file_page->page_read_bytes){
+    if(file_read_at(file_page->file,kva,file_page->page_read_bytes,file_page->ofs) != file_page->page_read_bytes){
         return false;
     }
 
@@ -89,7 +89,7 @@ static bool file_backed_swap_out(struct page *page) {
     if(pml4_is_dirty(victim->th->pml4,page->va)){
 
         //인자 순서: 파일,버퍼(RAM),사이즈,오프셋
-        if(!file_write_at(file_page->file,victim->kva,file_page->page_read_bytes,file_page->ofs)==file_page->page_read_bytes){
+        if(file_write_at(file_page->file,victim->kva,file_page->page_read_bytes,file_page->ofs)!=file_page->page_read_bytes){
             return false;
         }
 
