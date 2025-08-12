@@ -6,7 +6,6 @@
 //[08.11] 헤더 , 전역변수 추가
 #include "bitmap.h"
 struct bitmap* global_bitmap;
-struct disk* swap_disk;
 
 /* DO NOT MODIFY BELOW LINE */
 static struct disk *swap_disk;
@@ -49,7 +48,7 @@ bool anon_initializer(struct page *page, enum vm_type type, void *kva) {
 static bool anon_swap_in(struct page *page, void *kva) {
     
     struct anon_page *anon_page = &page->anon;
-    int idx=anon_page->swap_idx;; //초기화
+    int idx=anon_page->swap_idx; //초기화
   
     // 디스크에서 섹터 단위(512 byte) 로 읽어서 RAM에 쓰기
     for (int i=0; i<8 ; i++){
