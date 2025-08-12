@@ -68,11 +68,13 @@ static bool file_backed_swap_in(struct page *page, void *kva) {
     struct file_page *file_page  = &page->file;
 
     //파일을 읽어서 버퍼에 복사
-    file_read_at(file_page->file,kva,file_page->page_read_bytes,file_page->ofs);
+    if(!file_read_at(file_page->file,kva,file_page->page_read_bytes,file_page->ofs) == file_page->page_read_bytes){
+        return false;
+    }
 
     // 첫 인자부터 , 0으로, zero_bytes 만큼 채우기 
-    size_t zero_bytes = PGSIZE - file_page->page_zero_bytes;
-    memset(kva + file_page->page_read_bytes,  0,  zero_bytes);
+    size_t zero_bytes = PGSIZE - file_page->page_read_bytes;
+    memset((char*)kva + file_page->page_read_bytes,  0,  zero_bytes);
 
     return true;    
 }
@@ -87,7 +89,9 @@ static bool file_backed_swap_out(struct page *page) {
     if(pml4_is_dirty(victim->th->pml4,page->va)){
 
         //인자 순서: 파일,버퍼(RAM),사이즈,오프셋
-        file_write_at(file_page->file,victim->kva,file_page->page_read_bytes,file_page->ofs);
+        if(!file_write_at(file_page->file,victim->kva,file_page->page_read_bytes,file_page->ofs)==file_page->page_read_bytes){
+            return false;
+        }
 
         //더티비트 0 으로 수정
         pml4_set_dirty(victim->th->pml4, page->va, false);
