@@ -138,38 +138,42 @@ struct list_elem * next_pt = NULL;
 /* Get the struct frame, that will be evicted. */
 static struct frame *vm_get_victim(void) {
     struct frame *victim = NULL;
-    /* TODO: The policy for eviction is up to you. */
+    struct list_elem * e;    
 
     //Second Chance 메커니즘을 맞추기 위해 다음 시작 포인터 추가
     //초기화가 안 된 상태라면 리스트의 처음 값으로 설정
 
-    if(next_pt == NULL) next_pt = list_begin(&frame_table);
+    //next_pt가 없으면 처음부터, 있으면 next_pt부터
+    if(next_pt == NULL) e = list_begin(&frame_table);
+    else e = next_pt;
     
-    for(struct list_elem * e = next_pt; e != list_end(&frame_table); e = list_next(e)){
+    while(1){
+
         struct frame * f = list_entry(e,struct frame,elem);
-        // 프레임의 Access 비트 검사 -> 1이면 0으로 변경 후 넘어감
+
         if(pml4_is_accessed(f->th->pml4,f->page->va)){
             pml4_set_accessed(f->th->pml4,f->page->va,false);
         }
-        else{   //0이면 바로 victim으로 
-            victim = f;
-            next_pt = list_next(e);
-        }
-    }
-    
-    //프레임 테이블의 모든 프레임의 Access 비트가 1인 경우
-    //아직까지 Access 안 된 프레임을 victim으로 설정
-    if(victim == NULL){ 
-        for(struct list_elem * e = next_pt; e != list_end(&frame_table); e = list_next(e)){
-            struct frame * f = list_entry(e,struct frame,elem);
-            if(pml4_is_accessed(f->th->pml4,f->page->va)){
-                pml4_set_accessed(f->th->pml4,f->page->va,false);
+        else{
+            victim = f; // victim 프레임 catch
+            // second_chance 방식 next_pt 엣지 케이스 처리
+            if(list_next(e) == list_end(&frame_table)){
+                next_pt = list_begin(&frame_table);
             }
             else{
-                victim = f;
                 next_pt = list_next(e);
             }
+            break;
         }
+
+        // 원형 순회
+        if(list_next(e) == list_end(&frame_table)){
+            e = list_begin(&frame_table);
+        }
+        else{
+            e = list_next(e);
+        }
+
     }
     //근데 이거 반복문 두 번 쓰는게 맞는지 모르겠음
     return victim;
