@@ -52,9 +52,8 @@ struct frame {
     struct page *page;
 
     //[08.11 추가] 
-    struct list_elem elem; // 프레임테이블에 리스트로 사용
-    struct thread* th; // 이 프레임을 소유한 쓰레드 -> 정확한 pml4 찾아가야함
-    
+    struct list_elem elem;  // frame_table 리스트 삽입용
+    struct thread *th;      // 현재 프레임 소유(?) 쓰레드
 };
 
 /* The function table for page operations.

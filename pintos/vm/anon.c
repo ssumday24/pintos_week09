@@ -2,6 +2,7 @@
 
 #include "devices/disk.h"
 #include "vm/vm.h"
+#include <bitmap.h>
 
 //[08.11] 헤더 , 전역변수 추가
 #include "bitmap.h"
@@ -31,7 +32,6 @@ void vm_anon_init(void) {
     // swap 은 page 단위로 이루어지므로
     // [섹터개수 / 8] 의 bitmap 필요 -> 각 bit 가 page 1개를 가리킴
     global_bitmap = bitmap_create(disk_size(swap_disk) /8);
-
 }
 
 /* Initialize the file mapping */
@@ -50,6 +50,7 @@ bool anon_initializer(struct page *page, enum vm_type type, void *kva) {
 static bool anon_swap_in(struct page *page, void *kva) {
     
     struct anon_page *anon_page = &page->anon;
+
     int idx=anon_page->swap_idx; //초기화
   
     // 디스크에서  섹터(512byte) 단위로 읽어서 RAM(kva)에 복사
@@ -90,9 +91,11 @@ static bool anon_swap_out(struct page *page) {
 
     // 페이지테이블 매핑 해제 -> vm_evict_frame에서 수행??
     return true;
+
 }
 
 /* Destroy the anonymous page. PAGE will be freed by the caller. */
 static void anon_destroy(struct page *page) {
     struct anon_page *anon_page = &page->anon;
+    return true; // 임시
 }
