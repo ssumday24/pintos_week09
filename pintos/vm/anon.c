@@ -28,12 +28,13 @@ void vm_anon_init(void) {
     swap_disk= disk_get(1,1);
 
     // swap 은 page 단위로 이루어지므로
-    // [섹터개수 / 8] 의 bitmap 필요
+    // [섹터개수 / 8] 의 bitmap 필요 -> 각 bit 가 page 1개를 가리킴
     global_bitmap = bitmap_create(disk_size(swap_disk) /8);
 
 }
 
 /* Initialize the file mapping */
+// 익명 페이지가 하나 만들어질 때마다 호출
 bool anon_initializer(struct page *page, enum vm_type type, void *kva) {
     /* Set up the handler */
     page->operations = &anon_ops;
@@ -52,7 +53,7 @@ static bool anon_swap_in(struct page *page, void *kva) {
   
     // 디스크에서 섹터 단위(512 byte) 로 읽어서 RAM에 쓰기
     for (int i=0; i<8 ; i++){
-    disk_read(swap_disk, idx *8 + i  , kva + i * 512);
+    disk_read(swap_disk, idx *8 + i  , kva + i * DISK_SECTOR_SIZE);
     }
 
     // 비트 1->0 변경 
@@ -69,8 +70,7 @@ static bool anon_swap_out(struct page *page) {
 
     struct anon_page *anon_page = &page->anon;
 
-    //1. First-fit 으로 인덱스 찾기
-    // bitmap_scan -> scan_and_flip 으로 수정
+    // First-fit 으로 인덱스 찾기
     // 비트 0 ->1 변경
     idx =bitmap_scan_and_flip(global_bitmap,start,1,false);
 
@@ -78,15 +78,16 @@ static bool anon_swap_out(struct page *page) {
         PANIC("Error!\n"); // 빈자리 못찾음
     }
 
-    // 2. 페이지 단위로 디스크에 쓰기 : [1 Page = 8 Sector]
+    // 페이지 단위로 디스크에 쓰기 : [1 Page = 8 Sector]
     // RAM의 kva로부터 512씩 8번 읽어서, swap_disk에 쓰기
     for (int i=0; i<8 ; i++){
-    disk_write(swap_disk, idx *8 + i  , (page->frame->kva) + i * 512);
+        disk_write(swap_disk, idx *8 + i  , (page->frame->kva) + i * DISK_SECTOR_SIZE);
     }
-    // 3. swap slot 인덱스 저장
+
+    // swap slot 인덱스 저장
     anon_page->swap_idx = idx;
 
-    // 4. 페이지테이블 매핑 해제 -> vm_evict_frame에서 수행??
+    // 페이지테이블 매핑 해제 -> vm_evict_frame에서 수행??
     return true;
 }
 
